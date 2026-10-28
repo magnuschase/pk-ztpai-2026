@@ -30,11 +30,43 @@ const reservationIdParamSchema = z
   })
   .strict();
 
+const SORT_VALUES = [
+  "startTime",
+  "-startTime",
+  "createdAt",
+  "-createdAt",
+  "participants",
+  "-participants",
+];
+
 const listReservationsQuerySchema = z
   .object({
     roomId: z.coerce.number().int().positive("roomId must be a positive integer").optional(),
+    buildingId: z.coerce.number().int().positive("buildingId must be a positive integer").optional(),
+    status: z
+      .enum(["CONFIRMED", "CANCELLED"], { error: "status must be CONFIRMED or CANCELLED" })
+      .optional(),
+    from: isoDateTimeWithOffset.optional(),
+    to: isoDateTimeWithOffset.optional(),
+    page: z.coerce.number().int().min(1, "page must be an integer >= 1").default(1),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1, "limit must be between 1 and 100")
+      .max(100, "limit must be between 1 and 100")
+      .default(20),
+    sort: z
+      .enum(SORT_VALUES, { error: `sort must be one of: ${SORT_VALUES.join(", ")}` })
+      .default("startTime"),
   })
-  .strict();
+  .strict()
+  .refine(
+    (query) =>
+      query.from === undefined ||
+      query.to === undefined ||
+      Date.parse(query.from) < Date.parse(query.to),
+    { message: "from must be earlier than to", path: ["from"] },
+  );
 
 module.exports = {
   createReservationSchema,

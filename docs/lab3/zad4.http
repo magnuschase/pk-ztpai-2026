@@ -1,0 +1,45 @@
+@baseUrl = http://localhost:3000
+# Przed testami: pnpm seed:run && pnpm reservations:add 32   (razem 37 rezerwacji)
+# Logi SQL:      DEBUG=knex:query,knex:bindings pnpm dev
+
+### 0. Rezerwacja 10:00-12:00 do testu nakładania się przedziałów -> 201
+POST {{baseUrl}}/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "reservedBy": "Test Przedzialu",
+  "participants": 10,
+  "startTime": "2026-11-10T10:00:00Z",
+  "endTime": "2026-11-10T12:00:00Z"
+}
+
+### 1. Domyślnie: page=1, limit=20, sort=startTime -> meta.total = 38, totalPages = 2
+GET {{baseUrl}}/api/reservations
+
+### 2. Sala + status + druga strona + sortowanie malejąco
+GET {{baseUrl}}/api/reservations?roomId=3&status=CONFIRMED&page=2&limit=3&sort=-startTime
+
+### 3. Budynek, sortowanie po liczbie uczestników (remisy rozstrzyga id)
+GET {{baseUrl}}/api/reservations?buildingId=2&sort=-participants&limit=5
+
+### 4. Nakładanie się: 10:00-12:00 widoczna dla [11:00, 11:30)
+GET {{baseUrl}}/api/reservations?roomId=3&from=2026-11-10T11:00:00Z&to=2026-11-10T11:30:00Z
+
+### 5. Styk: [12:00, 13:00) NIE łapie rezerwacji 10:00-12:00 -> total 0
+GET {{baseUrl}}/api/reservations?roomId=3&from=2026-11-10T12:00:00Z&to=2026-11-10T13:00:00Z
+
+### 6. Tylko anulowane, najnowsze najpierw
+GET {{baseUrl}}/api/reservations?status=CANCELLED&sort=-createdAt
+
+### 7. Strona poza zakresem -> 200, data: [], total bez zmian
+GET {{baseUrl}}/api/reservations?page=99
+
+### 8. Nieznane sortowanie -> 400
+GET {{baseUrl}}/api/reservations?sort=reservedBy
+
+### 9. from >= to -> 400
+GET {{baseUrl}}/api/reservations?from=2026-11-10T12:00:00Z&to=2026-11-10T11:00:00Z
+
+### 10. limit poza zakresem 1-100 -> 400
+GET {{baseUrl}}/api/reservations?limit=101

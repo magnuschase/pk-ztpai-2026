@@ -20,11 +20,19 @@ function createReservationsService({
   roomsRepository,
   now,
 }) {
-  async function listReservations(roomId) {
-    if (roomId !== undefined) {
-      return reservationsRepository.findAllByRoomId(roomId);
-    }
-    return reservationsRepository.findAll();
+  // sort comes validated from the whitelist, e.g. "startTime" or "-createdAt"
+  async function listReservations({ filters, sort, page, limit }) {
+    const { items, total } = await reservationsRepository.findPage({
+      filters,
+      sort: {
+        field: sort.replace(/^-/, ""),
+        direction: sort.startsWith("-") ? "desc" : "asc",
+      },
+      limit,
+      offset: (page - 1) * limit,
+    });
+
+    return { items, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async function getReservationById(id) {

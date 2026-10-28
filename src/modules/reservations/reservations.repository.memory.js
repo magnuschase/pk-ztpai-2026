@@ -27,6 +27,30 @@ class ReservationsRepository {
     return this.#db.reservations.map((reservation) => this.#withRoom(reservation));
   }
 
+  async findPage({ filters, sort, limit, offset }) {
+    const { roomId, buildingId, status, from, to } = filters;
+    const matching = this.#db.reservations
+      .map((reservation) => this.#withRoom(reservation))
+      .filter(
+        (reservation) =>
+          (roomId === undefined || reservation.roomId === roomId) &&
+          (buildingId === undefined || reservation.room.building.id === buildingId) &&
+          (status === undefined || reservation.status === status) &&
+          (to === undefined || Date.parse(reservation.startTime) < Date.parse(to)) &&
+          (from === undefined || Date.parse(reservation.endTime) > Date.parse(from)),
+      );
+
+    const sortValue = {
+      startTime: (reservation) => Date.parse(reservation.startTime),
+      createdAt: (reservation) => Date.parse(reservation.createdAt),
+      participants: (reservation) => reservation.participants,
+    }[sort.field];
+    const sign = sort.direction === "desc" ? -1 : 1;
+    matching.sort((a, b) => sign * (sortValue(a) - sortValue(b) || a.id - b.id));
+
+    return { items: matching.slice(offset, offset + limit), total: matching.length };
+  }
+
   async findAllByRoomId(roomId) {
     return this.#db.reservations
       .filter((reservation) => reservation.roomId === roomId)

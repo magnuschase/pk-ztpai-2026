@@ -18,6 +18,23 @@ const SELECT_COLUMNS = [
   { room_name: "r.name", building_id: "r.building_id", building_name: "b.name" },
 ];
 
+// Sort whitelist: API field -> column. User input never reaches ORDER BY directly.
+const SORT_COLUMNS = {
+  startTime: "res.start_time",
+  createdAt: "res.created_at",
+  participants: "res.participants",
+};
+
+// Expects the query to have "res" (reservations) and "r" (rooms) in FROM
+function applyFilters(query, { roomId, buildingId, status, from, to }) {
+  if (roomId !== undefined) query.where("res.room_id", roomId);
+  if (buildingId !== undefined) query.where("r.building_id", buildingId);
+  if (status !== undefined) query.where("res.status", status);
+  // Overlaps [from, to): start < to AND end > from - touching ranges do not overlap
+  if (to !== undefined) query.where("res.start_time", "<", to);
+  if (from !== undefined) query.where("res.end_time", ">", from);
+}
+
 // pg returns timestamptz as Date; the in-memory repository keeps ISO strings
 function toIsoString(date) {
   return date ? date.toISOString() : null;
@@ -69,6 +86,33 @@ class ReservationsKnexRepository {
   async findAll() {
     const rows = await this.#selectWithRoom().orderBy("res.id");
     return rows.map(toReservation);
+  }
+
+  // Filtering, sorting and paging happen in SQL. Rows and total are separate queries,
+  // so total is known even for a page past the end (no rows to read it from).
+  async findPage({ filters, sort, limit, offset }) {
+    const sortColumn = SORT_COLUMNS[sort.field];
+    if (!sortColumn) {
+      throw new Error(`Unsupported sort field: ${sort.field}`);
+    }
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.#selectWithRoom()
+        .modify(applyFilters, filters)
+        .orderBy([
+          { column: sortColumn, order: sort.direction },
+          // Tie-breaker: rows with equal sort values keep a stable order across pages
+          { column: "res.id", order: sort.direction },
+        ])
+        .limit(limit)
+        .offset(offset),
+      this.#db({ res: TABLE })
+        .join({ r: "rooms" }, "r.id", "res.room_id")
+        .modify(applyFilters, filters)
+        .count({ total: "*" }),
+    ]);
+
+    return { items: rows.map(toReservation), total: Number(total) };
   }
 
   async findAllByRoomId(roomId) {
