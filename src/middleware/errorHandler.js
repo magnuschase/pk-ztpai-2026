@@ -1,4 +1,16 @@
-const { AppError } = require("../errors");
+const { AppError, ConflictError } = require("../errors");
+const { PG_UNIQUE_VIOLATION } = require("../errors/postgres");
+
+function toAppError(err) {
+  if (err instanceof AppError) return err;
+
+  // Constraint, table and column names stay in the server - the client gets a generic message
+  if (err.code === PG_UNIQUE_VIOLATION) {
+    return new ConflictError("Resource with the same unique fields already exists", "ALREADY_EXISTS");
+  }
+
+  return null;
+}
 
 // eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, _next) {
@@ -15,12 +27,13 @@ function errorHandler(err, req, res, _next) {
     });
   }
 
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
+  const appError = toAppError(err);
+  if (appError) {
+    return res.status(appError.statusCode).json({
       error: {
-        code: err.code,
-        message: err.message,
-        ...(err.details ? { details: err.details } : {}),
+        code: appError.code,
+        message: appError.message,
+        ...(appError.details ? { details: appError.details } : {}),
         requestId,
       },
     });

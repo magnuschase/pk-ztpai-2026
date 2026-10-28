@@ -2,10 +2,12 @@ const express = require("express");
 const requestLogger = require("./middleware/requestLogger");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
+const createBuildingsRouter = require("./modules/buildings/buildings.routes");
 const createRoomsRouter = require("./modules/rooms/rooms.routes");
 const createReservationsRouter = require("./modules/reservations/reservations.routes");
 
 function createApp({
+  buildingsRepository,
   roomsRepository,
   reservationsRepository,
   now = () => new Date(),
@@ -15,7 +17,8 @@ function createApp({
   app.use(requestLogger);
   app.use(express.json());
 
-  app.use("/api/rooms", createRoomsRouter({ roomsRepository }));
+  app.use("/api/buildings", createBuildingsRouter({ buildingsRepository }));
+  app.use("/api/rooms", createRoomsRouter({ roomsRepository, buildingsRepository }));
   app.use(
     "/api/reservations",
     createReservationsRouter({ reservationsRepository, roomsRepository, now }),

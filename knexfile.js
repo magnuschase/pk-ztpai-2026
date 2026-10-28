@@ -1,9 +1,4 @@
-try {
-  process.loadEnvFile();
-} catch (err) {
-  // .env is optional - variables can also come from the real environment
-  if (err.code !== "ENOENT") throw err;
-}
+require("./src/config/env");
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");

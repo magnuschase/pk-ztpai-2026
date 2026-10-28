@@ -1,0 +1,102 @@
+@baseUrl = http://localhost:3000
+# Przed testami: pnpm seed:run (2 budynki, 5 sal, 6 rezerwacji, ID od 1)
+
+### 1. Lista budynków -> 200
+GET {{baseUrl}}/api/buildings
+
+### 2. Budynek po id -> 200
+GET {{baseUrl}}/api/buildings/1
+
+### 3. Nieistniejący budynek -> 404 BUILDING_NOT_FOUND
+GET {{baseUrl}}/api/buildings/999
+
+### 4. Nowy budynek -> 201
+POST {{baseUrl}}/api/buildings
+Content-Type: application/json
+
+{
+  "name": "Budynek C",
+  "address": "ul. Testowa 1, Kraków"
+}
+
+### 5. Duplikat nazwy budynku -> 409 ALREADY_EXISTS (23505 z bazy)
+POST {{baseUrl}}/api/buildings
+Content-Type: application/json
+
+{
+  "name": "Budynek C",
+  "address": "ul. Inna 2, Kraków"
+}
+
+### 6. Niepoprawne dane budynku -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/buildings
+Content-Type: application/json
+
+{
+  "name": "",
+  "address": "x"
+}
+
+### 7. Nowa sala w budynku 1 -> 201
+POST {{baseUrl}}/api/rooms
+Content-Type: application/json
+
+{
+  "buildingId": 1,
+  "name": "301",
+  "capacity": 40
+}
+
+### 8. Sala "101" w budynku 2 -> 409 (w budynku 2 już jest "101")
+POST {{baseUrl}}/api/rooms
+Content-Type: application/json
+
+{
+  "buildingId": 2,
+  "name": "101",
+  "capacity": 10
+}
+
+### 9. Sala "101" w nowym budynku 3 (z kroku 4) -> 201 (ta sama nazwa, inny budynek)
+POST {{baseUrl}}/api/rooms
+Content-Type: application/json
+
+{
+  "buildingId": 3,
+  "name": "101",
+  "capacity": 10
+}
+
+### 10. Nieistniejący budynek -> 404 BUILDING_NOT_FOUND
+POST {{baseUrl}}/api/rooms
+Content-Type: application/json
+
+{
+  "buildingId": 999,
+  "name": "101",
+  "capacity": 10
+}
+
+### 11. Lista sal -> 200
+GET {{baseUrl}}/api/rooms
+
+### 12. Lista rezerwacji -> 200
+GET {{baseUrl}}/api/reservations
+
+### 13. Nowa rezerwacja -> 201
+POST {{baseUrl}}/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "reservedBy": "Ewa Test",
+  "participants": 10,
+  "startTime": "2026-12-10T10:00:00.000Z",
+  "endTime": "2026-12-10T12:00:00.000Z"
+}
+
+### 14. Rezerwacja, która już się rozpoczęła (seed id 2) -> 409 RESERVATION_ALREADY_STARTED
+PATCH {{baseUrl}}/api/reservations/2/cancel
+
+### 15. Po restarcie servera dane nadal są w bazie (budynek z kroku 4, rezerwacja z kroku 13)
+GET {{baseUrl}}/api/buildings/3

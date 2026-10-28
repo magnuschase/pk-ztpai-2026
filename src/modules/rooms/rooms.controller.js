@@ -12,7 +12,15 @@ function createRoomsController({ roomsService }) {
     res.json(toRoomResponse(room));
   }
 
-  return { listRooms, getRoomById };
+  async function createRoom(req, res) {
+    const room = await roomsService.createRoom(req.validated.body);
+    res
+      .status(201)
+      .location(`/api/rooms/${room.id}`)
+      .json(toRoomResponse(room));
+  }
+
+  return { listRooms, getRoomById, createRoom };
 }
 
 module.exports = createRoomsController;
