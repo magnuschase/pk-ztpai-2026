@@ -10,6 +10,7 @@ function createApp({
   buildingsRepository,
   roomsRepository,
   reservationsRepository,
+  runInTransaction,
   now = () => new Date(),
 }) {
   const app = express();
@@ -21,7 +22,7 @@ function createApp({
   app.use("/api/rooms", createRoomsRouter({ roomsRepository, buildingsRepository }));
   app.use(
     "/api/reservations",
-    createReservationsRouter({ reservationsRepository, roomsRepository, now }),
+    createReservationsRouter({ reservationsRepository, roomsRepository, runInTransaction, now }),
   );
 
   app.get("/api/debug/crash", () => {

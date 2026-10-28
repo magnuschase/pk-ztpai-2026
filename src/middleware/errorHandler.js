@@ -1,5 +1,5 @@
 const { AppError, ConflictError } = require("../errors");
-const { PG_UNIQUE_VIOLATION } = require("../errors/postgres");
+const { PG_UNIQUE_VIOLATION, PG_EXCLUSION_VIOLATION } = require("../errors/postgres");
 
 function toAppError(err) {
   if (err instanceof AppError) return err;
@@ -7,6 +7,14 @@ function toAppError(err) {
   // Constraint, table and column names stay in the server - the client gets a generic message
   if (err.code === PG_UNIQUE_VIOLATION) {
     return new ConflictError("Resource with the same unique fields already exists", "ALREADY_EXISTS");
+  }
+
+  // The only exclusion constraint: overlapping CONFIRMED reservations of one room
+  if (err.code === PG_EXCLUSION_VIOLATION) {
+    return new ConflictError(
+      "Room is already booked for the requested time range",
+      "ROOM_ALREADY_BOOKED",
+    );
   }
 
   return null;

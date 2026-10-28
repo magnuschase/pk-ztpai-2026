@@ -1,4 +1,16 @@
+const { exclusionViolation } = require("../../errors/postgres");
 const { createMemoryDatabase, nextIdOf } = require("../../db/memoryDatabase");
+
+// Emulates the reservations_no_overlap exclusion constraint
+function overlapsConfirmed(a, b) {
+  return (
+    a.roomId === b.roomId &&
+    a.status === "CONFIRMED" &&
+    b.status === "CONFIRMED" &&
+    Date.parse(a.startTime) < Date.parse(b.endTime) &&
+    Date.parse(b.startTime) < Date.parse(a.endTime)
+  );
+}
 
 class ReservationsRepository {
   #db;
@@ -63,6 +75,9 @@ class ReservationsRepository {
   }
 
   async create(data) {
+    if (this.#db.reservations.some((existing) => overlapsConfirmed(existing, data))) {
+      throw exclusionViolation("reservations_no_overlap");
+    }
     const reservation = { id: this.#nextId++, ...data };
     this.#db.reservations.push(reservation);
     return this.#withRoom(reservation);

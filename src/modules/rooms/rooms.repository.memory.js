@@ -31,6 +31,11 @@ class RoomsRepository {
     return room ? this.#withBuilding(room) : null;
   }
 
+  // No row locks in memory - runInTransaction runs units of work one at a time instead
+  async findByIdForUpdate(id) {
+    return this.findById(id);
+  }
+
   async create(data) {
     const duplicate = this.#db.rooms.some(
       (room) => room.buildingId === data.buildingId && room.name === data.name,

@@ -39,6 +39,13 @@ class RoomsKnexRepository {
     return row ? toRoom(row) : null;
   }
 
+  // SELECT ... FOR UPDATE OF r - locks only the room row (not the building) until the
+  // transaction ends. Must be called on a transaction (runInTransaction).
+  async findByIdForUpdate(id) {
+    const row = await this.#selectWithBuilding().where("r.id", id).forUpdate("r").first();
+    return row ? toRoom(row) : null;
+  }
+
   async create(data) {
     const [{ id }] = await this.#db(TABLE)
       .insert({

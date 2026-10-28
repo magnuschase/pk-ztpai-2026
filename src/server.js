@@ -12,24 +12,42 @@ const ReservationsKnexRepository = require("./modules/reservations/reservations.
 const PORT = process.env.PORT || 3000;
 const REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER || "knex";
 
+function createKnexRepositories(db) {
+  return {
+    buildingsRepository: new BuildingsKnexRepository(db),
+    roomsRepository: new RoomsKnexRepository(db),
+    reservationsRepository: new ReservationsKnexRepository(db),
+  };
+}
+
 // The only place that decides which repository implementation the app uses
 function createRepositories(driver) {
   if (driver === "memory") {
     const db = createMemoryDatabase();
-    return {
+    const repositories = {
       buildingsRepository: new BuildingsMemoryRepository(db),
       roomsRepository: new RoomsMemoryRepository(db),
       reservationsRepository: new ReservationsMemoryRepository(db),
     };
+    // No transactions in memory: units of work run one at a time (like a global lock).
+    // There is no rollback, so work should write only at the end.
+    let queue = Promise.resolve();
+    function runInTransaction(work) {
+      const result = queue.then(() => work(repositories));
+      queue = result.catch(() => {});
+      return result;
+    }
+    return { ...repositories, runInTransaction };
   }
 
   if (driver === "knex") {
     const db = knex(require("../knexfile"));
-    return {
-      buildingsRepository: new BuildingsKnexRepository(db),
-      roomsRepository: new RoomsKnexRepository(db),
-      reservationsRepository: new ReservationsKnexRepository(db),
-    };
+    // Repositories passed to `work` run every query on the same transaction;
+    // commit when `work` resolves, rollback when it throws
+    function runInTransaction(work) {
+      return db.transaction((trx) => work(createKnexRepositories(trx)));
+    }
+    return { ...createKnexRepositories(db), runInTransaction };
   }
 
   throw new Error(`Unknown REPOSITORY_DRIVER "${driver}" (expected "knex" or "memory")`);

@@ -8,11 +8,17 @@ const {
   listReservationsQuerySchema,
 } = require("./reservations.schemas");
 
-function createReservationsRouter({ reservationsRepository, roomsRepository, now }) {
+function createReservationsRouter({
+  reservationsRepository,
+  roomsRepository,
+  runInTransaction,
+  now,
+}) {
   const router = Router();
   const reservationsService = createReservationsService({
     reservationsRepository,
     roomsRepository,
+    runInTransaction,
     now,
   });
   const reservationsController = createReservationsController({ reservationsService });

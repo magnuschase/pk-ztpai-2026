@@ -18,6 +18,7 @@ function rangesOverlap(aStart, aEnd, bStart, bEnd) {
 function createReservationsService({
   reservationsRepository,
   roomsRepository,
+  runInTransaction,
   now,
 }) {
   // sort comes validated from the whitelist, e.g. "startTime" or "-createdAt"
@@ -43,8 +44,21 @@ function createReservationsService({
     return reservation;
   }
 
+  // Overlap check and insert run in one transaction, after locking the room row
+  // (SELECT ... FOR UPDATE). Concurrent bookings of the same room wait for the lock,
+  // and once they get it, their overlap check sees the reservation committed before.
+  // The conflicting reservation does not exist yet, so there is no reservation row
+  // to lock - the room row is what every booking of this room has in common.
   async function createReservation(input) {
-    const room = await roomsRepository.findById(input.roomId);
+    return runInTransaction((repositories) => createReservationInTransaction(repositories, input));
+  }
+
+  // Gets repositories bound to the transaction (they shadow the outer ones on purpose)
+  async function createReservationInTransaction(
+    { roomsRepository, reservationsRepository },
+    input,
+  ) {
+    const room = await roomsRepository.findByIdForUpdate(input.roomId);
     if (!room) {
       throw new NotFoundError("Room not found", "ROOM_NOT_FOUND");
     }
