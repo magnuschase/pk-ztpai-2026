@@ -1,70 +1,54 @@
-const HOUR_MS = 60 * 60 * 1000;
-
-function buildSeed() {
-  const now = Date.now();
-
-  return [
-    {
-      id: 1,
-      roomId: 1,
-      reservedBy: "Jan Kowalski",
-      participants: 20,
-      startTime: new Date(now + 24 * HOUR_MS).toISOString(),
-      endTime: new Date(now + 26 * HOUR_MS).toISOString(),
-      status: "CONFIRMED",
-      createdAt: new Date(now).toISOString(),
-      cancelledAt: null,
-      internalNote: "seed: upcoming reservation used for overlap tests",
-    },
-    {
-      id: 2,
-      roomId: 2,
-      reservedBy: "Anna Nowak",
-      participants: 10,
-      // started half an hour ago and not yet finished -> used to test
-      // "cannot cancel a reservation that has already started"
-      startTime: new Date(now - 0.5 * HOUR_MS).toISOString(),
-      endTime: new Date(now + 0.5 * HOUR_MS).toISOString(),
-      status: "CONFIRMED",
-      createdAt: new Date(now - 2 * HOUR_MS).toISOString(),
-      cancelledAt: null,
-      internalNote: "seed: already started, used for RESERVATION_ALREADY_STARTED",
-    },
-  ];
-}
+const { createMemoryDatabase, nextIdOf } = require("../../db/memoryDatabase");
 
 class ReservationsRepository {
-  #reservations;
+  #db;
   #nextId;
 
-  constructor() {
-    this.#reservations = buildSeed();
-    this.#nextId = this.#reservations.length + 1;
+  constructor(db = createMemoryDatabase()) {
+    this.#db = db;
+    this.#nextId = nextIdOf(db.reservations);
+  }
+
+  // Emulates JOIN rooms JOIN buildings
+  #withRoom(reservation) {
+    const room = this.#db.rooms.find((room) => room.id === reservation.roomId);
+    const building = this.#db.buildings.find((building) => building.id === room.buildingId);
+    return {
+      ...reservation,
+      room: {
+        id: room.id,
+        name: room.name,
+        building: { id: building.id, name: building.name },
+      },
+    };
   }
 
   async findAll() {
-    return this.#reservations;
+    return this.#db.reservations.map((reservation) => this.#withRoom(reservation));
   }
 
   async findAllByRoomId(roomId) {
-    return this.#reservations.filter((reservation) => reservation.roomId === roomId);
+    return this.#db.reservations
+      .filter((reservation) => reservation.roomId === roomId)
+      .map((reservation) => this.#withRoom(reservation));
   }
 
   async findById(id) {
-    return this.#reservations.find((reservation) => reservation.id === id) ?? null;
+    const reservation = this.#db.reservations.find((reservation) => reservation.id === id);
+    return reservation ? this.#withRoom(reservation) : null;
   }
 
   async create(data) {
     const reservation = { id: this.#nextId++, ...data };
-    this.#reservations.push(reservation);
-    return reservation;
+    this.#db.reservations.push(reservation);
+    return this.#withRoom(reservation);
   }
 
   async update(id, patch) {
-    const reservation = await this.findById(id);
+    const reservation = this.#db.reservations.find((reservation) => reservation.id === id);
     if (!reservation) return null;
     Object.assign(reservation, patch);
-    return reservation;
+    return this.#withRoom(reservation);
   }
 }
 

@@ -1,5 +1,4 @@
 const TABLE = "rooms";
-const COLUMNS = ["id", "building_id", "name", "capacity"];
 
 function toRoom(row) {
   return {
@@ -7,6 +6,7 @@ function toRoom(row) {
     buildingId: row.building_id,
     name: row.name,
     capacity: row.capacity,
+    building: { id: row.building_id, name: row.building_name },
   };
 }
 
@@ -17,25 +17,37 @@ class RoomsKnexRepository {
     this.#db = db;
   }
 
+  // One query with JOIN instead of fetching the building for every room (N+1)
+  #selectWithBuilding() {
+    return this.#db({ r: TABLE })
+      .join({ b: "buildings" }, "b.id", "r.building_id")
+      .select("r.id", "r.building_id", "r.name", "r.capacity", { building_name: "b.name" });
+  }
+
   async findAll() {
-    const rows = await this.#db(TABLE).select(COLUMNS).orderBy("id");
+    const rows = await this.#selectWithBuilding().orderBy("r.id");
+    return rows.map(toRoom);
+  }
+
+  async findAllByBuildingId(buildingId) {
+    const rows = await this.#selectWithBuilding().where("r.building_id", buildingId).orderBy("r.id");
     return rows.map(toRoom);
   }
 
   async findById(id) {
-    const row = await this.#db(TABLE).select(COLUMNS).where({ id }).first();
+    const row = await this.#selectWithBuilding().where("r.id", id).first();
     return row ? toRoom(row) : null;
   }
 
   async create(data) {
-    const [row] = await this.#db(TABLE)
+    const [{ id }] = await this.#db(TABLE)
       .insert({
         building_id: data.buildingId,
         name: data.name,
         capacity: data.capacity,
       })
-      .returning(COLUMNS);
-    return toRoom(row);
+      .returning("id");
+    return this.findById(id);
   }
 }
 

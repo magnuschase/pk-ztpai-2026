@@ -17,7 +17,7 @@ function createApp({
   app.use(requestLogger);
   app.use(express.json());
 
-  app.use("/api/buildings", createBuildingsRouter({ buildingsRepository }));
+  app.use("/api/buildings", createBuildingsRouter({ buildingsRepository, roomsRepository }));
   app.use("/api/rooms", createRoomsRouter({ roomsRepository, buildingsRepository }));
   app.use(
     "/api/reservations",

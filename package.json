@@ -14,6 +14,7 @@
     "migrate:list": "knex migrate:list",
     "migrate:make": "knex migrate:make",
     "seed:run": "knex seed:run",
+    "reservations:add": "node scripts/add-reservations.js",
     "db:reset": "knex migrate:rollback --all && knex migrate:latest && knex seed:run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -1,32 +1,37 @@
 const { uniqueViolation } = require("../../errors/postgres");
+const { createMemoryDatabase, nextIdOf } = require("../../db/memoryDatabase");
 
 class BuildingsRepository {
-  #buildings;
+  #db;
   #nextId;
 
-  constructor() {
-    this.#buildings = [
-      { id: 1, name: "Budynek A", address: "ul. Warszawska 24, Kraków" },
-      { id: 2, name: "Budynek B", address: "al. Jana Pawła II 37, Kraków" },
-    ];
-    this.#nextId = this.#buildings.length + 1;
+  constructor(db = createMemoryDatabase()) {
+    this.#db = db;
+    this.#nextId = nextIdOf(db.buildings);
+  }
+
+  // Emulates LEFT JOIN rooms + COUNT
+  #withRoomsCount(building) {
+    const roomsCount = this.#db.rooms.filter((room) => room.buildingId === building.id).length;
+    return { ...building, roomsCount };
   }
 
   async findAll() {
-    return this.#buildings;
+    return this.#db.buildings.map((building) => this.#withRoomsCount(building));
   }
 
   async findById(id) {
-    return this.#buildings.find((building) => building.id === id) ?? null;
+    const building = this.#db.buildings.find((building) => building.id === id);
+    return building ? this.#withRoomsCount(building) : null;
   }
 
   async create(data) {
-    if (this.#buildings.some((building) => building.name === data.name)) {
+    if (this.#db.buildings.some((building) => building.name === data.name)) {
       throw uniqueViolation("buildings_name_unique");
     }
     const building = { id: this.#nextId++, ...data };
-    this.#buildings.push(building);
-    return building;
+    this.#db.buildings.push(building);
+    return this.#withRoomsCount(building);
   }
 }
 

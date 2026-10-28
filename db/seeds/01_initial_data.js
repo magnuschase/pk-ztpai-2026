@@ -78,15 +78,5 @@ exports.seed = async function (knex) {
       status: "CONFIRMED",
       created_at: at(-12),
     },
-    // 6: upcoming, big room
-    {
-      room_id: 5,
-      reserved_by: "Tomasz Lewandowski",
-      participants: 120,
-      start_time: at(72),
-      end_time: at(75),
-      status: "CONFIRMED",
-      created_at: at(-6),
-    },
   ]);
 };

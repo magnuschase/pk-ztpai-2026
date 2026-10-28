@@ -1,0 +1,36 @@
+@baseUrl = http://localhost:3000
+# Przed testami: pnpm seed:run (2 budynki, 5 sal, 5 rezerwacji)
+# Logi SQL:      DEBUG=knex:query pnpm dev
+# 20 rezerwacji: pnpm reservations:add 15
+
+### 1. Pusty budynek (do sprawdzenia roomsCount: 0 i []) -> 201
+POST {{baseUrl}}/api/buildings
+Content-Type: application/json
+{
+  "name": "Budynek C",
+  "address": "ul. Pusta 1, Kraków"
+}
+
+### 2. Budynki z roomsCount (LEFT JOIN + GROUP BY, 1 zapytanie) -> 200
+GET {{baseUrl}}/api/buildings
+
+### 3. Sale budynku -> 200, 3 sale
+GET {{baseUrl}}/api/buildings/1/rooms
+
+### 4. Budynek bez sal -> 200, []
+GET {{baseUrl}}/api/buildings/3/rooms
+
+### 5. Nieistniejący budynek -> 404 BUILDING_NOT_FOUND
+GET {{baseUrl}}/api/buildings/999/rooms
+
+### 6. Sala z budynkiem -> 200
+GET {{baseUrl}}/api/rooms/3
+
+### 7. Lista sal z budynkami -> 200
+GET {{baseUrl}}/api/rooms
+
+### 8. Rezerwacja z salą i budynkiem -> 200
+GET {{baseUrl}}/api/reservations/1
+
+### 9. Lista rezerwacji (1 zapytanie przy 5 i przy 20 rezerwacjach) -> 200
+GET {{baseUrl}}/api/reservations

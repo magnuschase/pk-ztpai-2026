@@ -3,6 +3,7 @@ function toBuildingResponse(building) {
     id: building.id,
     name: building.name,
     address: building.address,
+    roomsCount: building.roomsCount,
   };
 }
 

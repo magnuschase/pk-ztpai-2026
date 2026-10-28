@@ -1,6 +1,7 @@
 require("./config/env");
 const knex = require("knex");
 const createApp = require("./app");
+const { createMemoryDatabase } = require("./db/memoryDatabase");
 const BuildingsMemoryRepository = require("./modules/buildings/buildings.repository.memory");
 const BuildingsKnexRepository = require("./modules/buildings/buildings.repository.knex");
 const RoomsMemoryRepository = require("./modules/rooms/rooms.repository.memory");
@@ -14,10 +15,11 @@ const REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER || "knex";
 // The only place that decides which repository implementation the app uses
 function createRepositories(driver) {
   if (driver === "memory") {
+    const db = createMemoryDatabase();
     return {
-      buildingsRepository: new BuildingsMemoryRepository(),
-      roomsRepository: new RoomsMemoryRepository(),
-      reservationsRepository: new ReservationsMemoryRepository(),
+      buildingsRepository: new BuildingsMemoryRepository(db),
+      roomsRepository: new RoomsMemoryRepository(db),
+      reservationsRepository: new ReservationsMemoryRepository(db),
     };
   }
 
@@ -35,6 +37,8 @@ function createRepositories(driver) {
 
 const app = createApp(createRepositories(REPOSITORY_DRIVER));
 
-app.listen(PORT, () => {
+// Express 5 passes listen errors (e.g. EADDRINUSE) to the callback
+app.listen(PORT, (err) => {
+  if (err) throw err;
   console.log(`Server is running at http://localhost:${PORT} (repositories: ${REPOSITORY_DRIVER})`);
 });
