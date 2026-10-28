@@ -1,6 +1,7 @@
 // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
 const PG_UNIQUE_VIOLATION = "23505";
 const PG_EXCLUSION_VIOLATION = "23P01";
+const PG_DEADLOCK_DETECTED = "40P01";
 
 // Errors shaped like the ones thrown by `pg`. In-memory repositories use them to
 // emulate database constraints, so both implementations share the error handling.
@@ -30,6 +31,7 @@ function exclusionViolation(constraint) {
 module.exports = {
   PG_UNIQUE_VIOLATION,
   PG_EXCLUSION_VIOLATION,
+  PG_DEADLOCK_DETECTED,
   uniqueViolation,
   exclusionViolation,
 };

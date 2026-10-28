@@ -1,3 +1,5 @@
+const { PG_DEADLOCK_DETECTED, exclusionViolation } = require("../../errors/postgres");
+
 const TABLE = "reservations";
 
 // Domain field (camelCase) -> column (snake_case)
@@ -57,6 +59,15 @@ function toReservation(row) {
     createdAt: toIsoString(row.created_at),
     cancelledAt: toIsoString(row.cancelled_at),
   };
+}
+
+// An exclusion constraint is checked after the row is already in the index. Concurrent
+// INSERTs of overlapping CONFIRMED reservations see each other's uncommitted rows, wait
+// for each other, and the deadlock detector aborts one of them with 40P01 instead of
+// 23P01. One of them was bound to fail with the conflict anyway (PostgreSQL,
+// execIndexing.c), so the deadlock is reported as the same conflict.
+function deadlockAsExclusionViolation(err) {
+  return err.code === PG_DEADLOCK_DETECTED ? exclusionViolation("reservations_no_overlap") : err;
 }
 
 // Fields without a column (e.g. internalNote set by the service) are not persisted
@@ -126,8 +137,13 @@ class ReservationsKnexRepository {
   }
 
   async create(data) {
-    const [{ id }] = await this.#db(TABLE).insert(toRow(data)).returning("id");
-    return this.findById(id);
+    let rows;
+    try {
+      rows = await this.#db(TABLE).insert(toRow(data)).returning("id");
+    } catch (err) {
+      throw deadlockAsExclusionViolation(err);
+    }
+    return this.findById(rows[0].id);
   }
 
   async update(id, patch) {
