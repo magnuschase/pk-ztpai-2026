@@ -16,6 +16,7 @@
     "seed:run": "knex seed:run",
     "reservations:add": "node scripts/add-reservations.js",
     "double-booking": "node scripts/double-booking.js",
+    "register-race": "node scripts/register-race.js",
     "db:reset": "knex migrate:rollback --all && knex migrate:latest && knex seed:run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -24,6 +25,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.23.0",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
     "knex": "^3.3.0",
     "pg": "^8.23.1",

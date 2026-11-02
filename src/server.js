@@ -8,12 +8,15 @@ const RoomsMemoryRepository = require("./modules/rooms/rooms.repository.memory")
 const RoomsKnexRepository = require("./modules/rooms/rooms.repository.knex");
 const ReservationsMemoryRepository = require("./modules/reservations/reservations.repository.memory");
 const ReservationsKnexRepository = require("./modules/reservations/reservations.repository.knex");
+const UsersMemoryRepository = require("./modules/users/users.repository.memory");
+const UsersKnexRepository = require("./modules/users/users.repository.knex");
 
 const PORT = process.env.PORT || 3000;
 const REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER || "knex";
 
 function createKnexRepositories(db) {
   return {
+    usersRepository: new UsersKnexRepository(db),
     buildingsRepository: new BuildingsKnexRepository(db),
     roomsRepository: new RoomsKnexRepository(db),
     reservationsRepository: new ReservationsKnexRepository(db),
@@ -25,6 +28,7 @@ function createRepositories(driver) {
   if (driver === "memory") {
     const db = createMemoryDatabase();
     const repositories = {
+      usersRepository: new UsersMemoryRepository(db),
       buildingsRepository: new BuildingsMemoryRepository(db),
       roomsRepository: new RoomsMemoryRepository(db),
       reservationsRepository: new ReservationsMemoryRepository(db),

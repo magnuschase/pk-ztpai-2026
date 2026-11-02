@@ -6,6 +6,16 @@ function createMemoryDatabase() {
   const now = Date.now();
 
   return {
+    users: [
+      {
+        id: 1,
+        email: "admin@example.com",
+        // bcrypt (cost 12) of "admin-dev-password" - the same account as in the knex seed
+        passwordHash: "$2b$12$ky6Yybu9Qd.78UQvf3W2LOIXVUxOYEeUotsnPoS4fymu67sDI9Oja",
+        role: "ADMIN",
+        createdAt: new Date(now).toISOString(),
+      },
+    ],
     buildings: [
       { id: 1, name: "Budynek A", address: "ul. Warszawska 24, Kraków" },
       { id: 2, name: "Budynek B", address: "al. Jana Pawła II 37, Kraków" },

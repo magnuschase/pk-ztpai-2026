@@ -1,0 +1,85 @@
+@baseUrl = http://localhost:3000
+# Przed testami: pnpm migrate:latest && pnpm seed:run   (admin@example.com = id 1)
+# Równoległe rejestracje: pnpm register-race 10
+
+### 1. Rejestracja -> 201, email znormalizowany do małych liter, rola USER, bez hasha
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "Jan.Kowalski@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 2. Duplikat różniący się wielkością liter (i spacjami) -> 409 EMAIL_TAKEN
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "  JAN.KOWALSKI@EXAMPLE.COM ",
+  "password": "inne-dlugie-haslo"
+}
+
+### 3. Próba nadania roli ADMIN -> 400 VALIDATION_ERROR (Unrecognized key: "role")
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "hacker@example.com",
+  "password": "bardzo-dlugie-haslo",
+  "role": "ADMIN"
+}
+
+### 4. Inne nieznane pole -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ewa@example.com",
+  "password": "bardzo-dlugie-haslo",
+  "passwordHash": "$2b$12$..."
+}
+
+### 5. Za krótkie hasło (9 znaków) -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ewa@example.com",
+  "password": "123456789"
+}
+
+### 6. Za długie hasło (73 znaki) -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ewa@example.com",
+  "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### 7. 40 znaków, ale 80 bajtów UTF-8 (limit bcrypt to 72 bajty) -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ewa@example.com",
+  "password": "ąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąąą"
+}
+
+### 8. Niepoprawny email i brak hasła -> 400 VALIDATION_ERROR (2 błędy w details)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "to-nie-jest-email"
+}
+
+### 9. Email admina z seeda -> 409 EMAIL_TAKEN
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "Admin@Example.com",
+  "password": "bardzo-dlugie-haslo"
+}

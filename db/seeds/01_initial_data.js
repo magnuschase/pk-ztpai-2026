@@ -1,11 +1,21 @@
+const { hashPassword } = require("../../src/modules/auth/password");
+
 const HOUR_MS = 60 * 60 * 1000;
+
+// Local development account - the seed is the only way to create an ADMIN
+// (registration through the API always creates a USER)
+const ADMIN = { email: "admin@example.com", password: "admin-dev-password" };
 
 /**
  * @param { import("knex").Knex } knex
  */
 exports.seed = async function (knex) {
   // RESTART IDENTITY resets the sequences, so every run gives the same IDs (starting at 1)
-  await knex.raw("TRUNCATE TABLE reservations, rooms, buildings RESTART IDENTITY CASCADE");
+  await knex.raw("TRUNCATE TABLE reservations, rooms, buildings, users RESTART IDENTITY CASCADE");
+
+  await knex("users").insert([
+    { email: ADMIN.email, password_hash: await hashPassword(ADMIN.password), role: "ADMIN" }, // 1
+  ]);
 
   // Times are relative to the current full hour, so the "already started"
   // reservation is in progress right after seeding.
