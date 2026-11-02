@@ -4,10 +4,10 @@
 // Test data (buildings, rooms, reservations) is created through the API.
 //
 // Usage: node scripts/permissions-matrix.js   (after pnpm seed:run)
-// API_URL defaults to http://localhost:$PORT (from .env)
-require("../src/config/env");
+// API_URL defaults to http://localhost:$PORT (src/config)
+const config = require("../src/config");
 
-const API_URL = process.env.API_URL || `http://localhost:${process.env.PORT || 3000}`;
+const API_URL = config.apiUrl;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 

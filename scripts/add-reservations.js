@@ -2,7 +2,6 @@
 // the N+1 and pagination reports.
 //
 // Usage: node scripts/add-reservations.js [count=15]
-require("../src/config/env");
 const knex = require("knex")(require("../knexfile"));
 
 const HOUR_MS = 60 * 60 * 1000;

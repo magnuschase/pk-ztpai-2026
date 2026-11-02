@@ -5,10 +5,10 @@
 // the script then waits until the token expires. With a long lifetime it skips that case.
 //
 // Usage: node scripts/auth-401.js
-// API_URL defaults to http://localhost:$PORT (from .env)
-require("../src/config/env");
+// API_URL defaults to http://localhost:$PORT (src/config)
+const config = require("../src/config");
 
-const API_URL = process.env.API_URL || `http://localhost:${process.env.PORT || 3000}`;
+const API_URL = config.apiUrl;
 const ENDPOINT = `${API_URL}/api/reservations`;
 // Seed account (db/seeds/01_initial_data.js)
 const CREDENTIALS = { email: "jan.kowalski@example.com", password: "user-dev-password" };

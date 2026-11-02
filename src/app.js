@@ -1,4 +1,6 @@
 const express = require("express");
+const swaggerUi = require("swagger-ui-express");
+const openapiSpec = require("./docs/openapi");
 const requestLogger = require("./middleware/requestLogger");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
@@ -27,6 +29,17 @@ function createApp({
 
   // Public: register and login (GET /api/auth/me authenticates on its own)
   app.use("/api/auth", createAuthRouter({ usersRepository, tokenService, authenticate }));
+
+  // Public: API documentation. The token pasted under "Authorize" is kept across reloads.
+  app.get("/api/docs/openapi.json", (req, res) => res.json(openapiSpec));
+  app.use(
+    "/api/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(openapiSpec, {
+      customSiteTitle: "Room Booking API",
+      swaggerOptions: { persistAuthorization: true },
+    }),
+  );
 
   // Everything below requires a valid token - a new route is protected by default,
   // nobody has to remember to add the middleware. Public routes go above this line.

@@ -1,12 +1,8 @@
-require("./src/config/env");
-
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not set");
-}
+const config = require("./src/config");
 
 module.exports = {
   client: "pg",
-  connection: process.env.DATABASE_URL,
+  connection: config.databaseUrl,
   migrations: {
     directory: "./db/migrations",
   },

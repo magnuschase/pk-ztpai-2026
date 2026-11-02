@@ -1,4 +1,5 @@
-require("./config/env");
+// First: an invalid configuration stops the process here, before anything starts
+const config = require("./config");
 const knex = require("knex");
 const createApp = require("./app");
 const { createMemoryDatabase } = require("./db/memoryDatabase");
@@ -10,11 +11,6 @@ const ReservationsMemoryRepository = require("./modules/reservations/reservation
 const ReservationsKnexRepository = require("./modules/reservations/reservations.repository.knex");
 const UsersMemoryRepository = require("./modules/users/users.repository.memory");
 const UsersKnexRepository = require("./modules/users/users.repository.knex");
-
-const PORT = process.env.PORT || 3000;
-const REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER || "knex";
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
 
 function createKnexRepositories(db) {
   return {
@@ -60,12 +56,15 @@ function createRepositories(driver) {
 }
 
 const app = createApp({
-  ...createRepositories(REPOSITORY_DRIVER),
-  jwt: { secret: JWT_SECRET, expiresIn: JWT_EXPIRES_IN },
+  ...createRepositories(config.repositoryDriver),
+  jwt: config.jwt,
 });
 
 // Express 5 passes listen errors (e.g. EADDRINUSE) to the callback
-app.listen(PORT, (err) => {
+app.listen(config.port, (err) => {
   if (err) throw err;
-  console.log(`Server is running at http://localhost:${PORT} (repositories: ${REPOSITORY_DRIVER})`);
+  console.log(
+    `Server is running at http://localhost:${config.port} (repositories: ${config.repositoryDriver})`,
+  );
+  console.log(`API docs: http://localhost:${config.port}/api/docs`);
 });

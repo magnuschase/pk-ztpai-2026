@@ -3,11 +3,11 @@
 // in the database. Correct result: one 201, the rest 409 EMAIL_TAKEN, exactly 1 row.
 //
 // Usage: node scripts/register-race.js [requests=10]
-// API_URL defaults to http://localhost:$PORT (from .env)
-require("../src/config/env");
+// API_URL defaults to http://localhost:$PORT (src/config)
+const config = require("../src/config");
 const knex = require("knex")(require("../knexfile"));
 
-const API_URL = process.env.API_URL || `http://localhost:${process.env.PORT || 3000}`;
+const API_URL = config.apiUrl;
 
 // Every variant normalizes to the same lowercase email
 function letterCaseVariant(email, i) {

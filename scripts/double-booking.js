@@ -3,11 +3,11 @@
 // many CONFIRMED reservations overlap that range. Correct result: exactly 1.
 //
 // Usage: node scripts/double-booking.js [roomId=3] [requests=10]
-// API_URL defaults to http://localhost:$PORT (from .env)
-require("../src/config/env");
+// API_URL defaults to http://localhost:$PORT (src/config)
+const config = require("../src/config");
 const knex = require("knex")(require("../knexfile"));
 
-const API_URL = process.env.API_URL || `http://localhost:${process.env.PORT || 3000}`;
+const API_URL = config.apiUrl;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
