@@ -13,6 +13,8 @@ const UsersKnexRepository = require("./modules/users/users.repository.knex");
 
 const PORT = process.env.PORT || 3000;
 const REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER || "knex";
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
 
 function createKnexRepositories(db) {
   return {
@@ -57,7 +59,10 @@ function createRepositories(driver) {
   throw new Error(`Unknown REPOSITORY_DRIVER "${driver}" (expected "knex" or "memory")`);
 }
 
-const app = createApp(createRepositories(REPOSITORY_DRIVER));
+const app = createApp({
+  ...createRepositories(REPOSITORY_DRIVER),
+  jwt: { secret: JWT_SECRET, expiresIn: JWT_EXPIRES_IN },
+});
 
 // Express 5 passes listen errors (e.g. EADDRINUSE) to the callback
 app.listen(PORT, (err) => {

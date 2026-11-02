@@ -15,6 +15,16 @@ class UsersRepository {
     this.#nextId = nextIdOf(db.users);
   }
 
+  async findById(id) {
+    const user = this.#db.users.find((user) => user.id === id);
+    return user ? toUser(user) : null;
+  }
+
+  async findByEmailWithPasswordHash(email) {
+    const user = this.#db.users.find((user) => user.email === email);
+    return user ? { ...toUser(user), passwordHash: user.passwordHash } : null;
+  }
+
   async create(data) {
     if (this.#db.users.some((user) => user.email === data.email)) {
       throw uniqueViolation("users_email_unique");

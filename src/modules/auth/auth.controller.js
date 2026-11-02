@@ -6,7 +6,18 @@ function createAuthController({ authService }) {
     res.status(201).json(toUserResponse(user));
   }
 
-  return { register };
+  async function login(req, res) {
+    const token = await authService.login(req.validated.body);
+    // Tokens must not end up in browser or proxy caches (RFC 6749, 5.1)
+    res.set("Cache-Control", "no-store").json(token);
+  }
+
+  async function me(req, res) {
+    const user = await authService.getCurrentUser(req.user);
+    res.json(toUserResponse(user));
+  }
+
+  return { register, login, me };
 }
 
 module.exports = createAuthController;

@@ -1,6 +1,6 @@
 const TABLE = "users";
 
-// password_hash is left out on purpose - it is not needed outside the login flow
+// password_hash is left out on purpose - only findByEmailWithPasswordHash (login) reads it
 const PUBLIC_COLUMNS = ["id", "email", "role", "created_at"];
 
 function toUser(row) {
@@ -18,6 +18,20 @@ class UsersKnexRepository {
 
   constructor(db) {
     this.#db = db;
+  }
+
+  async findById(id) {
+    const row = await this.#db(TABLE).select(PUBLIC_COLUMNS).where({ id }).first();
+    return row ? toUser(row) : null;
+  }
+
+  // The only method that returns the password hash - for checking credentials at login
+  async findByEmailWithPasswordHash(email) {
+    const row = await this.#db(TABLE)
+      .select([...PUBLIC_COLUMNS, "password_hash"])
+      .where({ email })
+      .first();
+    return row ? { ...toUser(row), passwordHash: row.password_hash } : null;
   }
 
   // A taken email fails with 23505 on users_email_unique

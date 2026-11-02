@@ -1,0 +1,80 @@
+@baseUrl = http://localhost:3000
+# Przed testami: pnpm seed:run   (admin@example.com / admin-dev-password = id 1)
+# Zdekodowany payload: accessToken z kroku 1 wklej na https://jwt.io
+#   -> { "role": "USER", "iat": ..., "exp": iat + 900, "sub": "2" }, bez emaila i hasha
+# Kroki 1 i 7 zapisują token (REST Client: # @name), kolejne go używają
+
+### 0. Rejestracja Jana -> 201 (albo 409 EMAIL_TAKEN, jeśli już istnieje)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "Jan.Kowalski@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 1. Logowanie -> 200 { accessToken, tokenType: "Bearer", expiresIn: "15m" }
+# @name loginJan
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 2. Email jest normalizowany także przy logowaniu -> 200
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "  JAN.Kowalski@Example.COM ",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 3. Złe hasło -> 401 INVALID_CREDENTIALS
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "zle-haslo-123"
+}
+
+### 4. Nieistniejący email -> 401 INVALID_CREDENTIALS (ten sam kod i komunikat co w kroku 3)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nie.ma.mnie@example.com",
+  "password": "zle-haslo-123"
+}
+
+### 5. Brak hasła -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com"
+}
+
+### 6. Dane zalogowanego użytkownika -> 200 (bez hasha)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{loginJan.response.body.accessToken}}
+
+### 7. Logowanie admina -> 200
+# @name loginAdmin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "admin-dev-password"
+}
+
+### 8. Dane admina -> 200, role: ADMIN
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### 9. /me bez tokenu -> 401 MISSING_TOKEN
+GET {{baseUrl}}/api/auth/me
