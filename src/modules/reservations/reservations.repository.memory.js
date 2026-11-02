@@ -42,11 +42,12 @@ class ReservationsRepository {
   }
 
   async findPage({ filters, sort, limit, offset }) {
-    const { roomId, buildingId, status, from, to } = filters;
+    const { userId, roomId, buildingId, status, from, to } = filters;
     const matching = this.#db.reservations
       .map((reservation) => this.#withRoom(reservation))
       .filter(
         (reservation) =>
+          (userId === undefined || reservation.userId === userId) &&
           (roomId === undefined || reservation.roomId === roomId) &&
           (buildingId === undefined || reservation.room.building.id === buildingId) &&
           (status === undefined || reservation.status === status) &&

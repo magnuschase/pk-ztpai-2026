@@ -1,5 +1,6 @@
 const { ConflictError, UnauthorizedError } = require("../../errors");
 const { PG_UNIQUE_VIOLATION } = require("../../errors/postgres");
+const { ROLES } = require("../users/users.roles");
 const { hashPassword, verifyPassword } = require("./password");
 
 function createAuthService({ usersRepository, tokenService }) {
@@ -10,7 +11,7 @@ function createAuthService({ usersRepository, tokenService }) {
 
     try {
       // Role is never taken from the input - ADMIN accounts come only from the seed
-      return await usersRepository.create({ email, passwordHash, role: "USER" });
+      return await usersRepository.create({ email, passwordHash, role: ROLES.USER });
     } catch (err) {
       if (err.code === PG_UNIQUE_VIOLATION && err.constraint === "users_email_unique") {
         throw new ConflictError("Email is already taken", "EMAIL_TAKEN");

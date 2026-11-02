@@ -1,0 +1,460 @@
+@baseUrl = http://localhost:3000
+# Tabela uprawnień - zad. 4. Każda komórka tabeli = jedno zapytanie poniżej,
+# zatytułowane "R<wiersz> | <kolumna>" (np. "R5 | USER obcy (Anna)").
+#
+# Przed testami:
+#   pnpm seed:run
+#   serwer z JWT_EXPIRES_IN=15m - przy 10s tokeny wygasną w trakcie (401 TOKEN_EXPIRED -> ponów L1-L3)
+# Wykonuj po kolei - R5/R6 używają budynku z R4, R10/R11 sali z R9, R17 rezerwacji z R15.
+#
+# Kolumny: USER właściciel = Jan (id 2, właściciel rezerwacji 1), USER obcy = Anna (id 3).
+# Budynki i sale nie mają właściciela - tam obie kolumny USER to po prostu zwykły użytkownik.
+#
+#        Endpoint                            brak tokenu | USER właściciel | USER obcy | ADMIN
+# R1     GET /api/buildings                  401         | 200             | 200       | 200
+# R2     GET /api/buildings/:id              401         | 200             | 200       | 200
+# R3     GET /api/buildings/:id/rooms        401         | 200             | 200       | 200
+# R4     POST /api/buildings                 401         | 403             | 403       | 201
+# R5     PATCH /api/buildings/:id            401         | 403             | 403       | 200
+# R6     DELETE /api/buildings/:id           401         | 403             | 403       | 204
+# R7     GET /api/rooms                      401         | 200             | 200       | 200
+# R8     GET /api/rooms/:id                  401         | 200             | 200       | 200
+# R9     POST /api/rooms                     401         | 403             | 403       | 201
+# R10    PATCH /api/rooms/:id                401         | 403             | 403       | 200
+# R11    DELETE /api/rooms/:id               401         | 403             | 403       | 204
+# R12    GET /api/auth/me                    401         | 200             | 200       | 200
+# R13    GET /api/reservations               401         | 200             | 200       | 200
+# R14    GET /api/reservations?userId=:id    401         | 403             | 403       | 200
+# R15    POST /api/reservations              401         | 201             | 201       | 201
+# R16    GET /api/reservations/:id           401         | 200             | 404       | 200
+# R17    PATCH /api/reservations/:id/cancel  401         | 200             | 404       | 200
+#
+# Na końcu (E1-E8, poza tabelą): filtry/paginacja USERa, 404 dla nieistniejącej rezerwacji
+# i reguły biznesowe, które obowiązują także ADMINa.
+
+### L1 | Logowanie: Jan (USER właściciel)
+# @name jan
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "jan.kowalski@example.com", "password": "user-dev-password" }
+
+### L2 | Logowanie: Anna (USER obcy)
+# @name anna
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "anna.nowak@example.com", "password": "user-dev-password" }
+
+### L3 | Logowanie: ADMIN
+# @name admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "admin-dev-password" }
+
+########## R1: GET /api/buildings
+
+### R1 | brak tokenu | GET /api/buildings -> 401
+GET {{baseUrl}}/api/buildings
+
+### R1 | USER właściciel (Jan) | GET /api/buildings -> 200
+GET {{baseUrl}}/api/buildings
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R1 | USER obcy (Anna) | GET /api/buildings -> 200
+GET {{baseUrl}}/api/buildings
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R1 | ADMIN | GET /api/buildings -> 200
+GET {{baseUrl}}/api/buildings
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R2: GET /api/buildings/:id
+
+### R2 | brak tokenu | GET /api/buildings/:id -> 401
+GET {{baseUrl}}/api/buildings/1
+
+### R2 | USER właściciel (Jan) | GET /api/buildings/:id -> 200
+GET {{baseUrl}}/api/buildings/1
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R2 | USER obcy (Anna) | GET /api/buildings/:id -> 200
+GET {{baseUrl}}/api/buildings/1
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R2 | ADMIN | GET /api/buildings/:id -> 200
+GET {{baseUrl}}/api/buildings/1
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R3: GET /api/buildings/:id/rooms
+
+### R3 | brak tokenu | GET /api/buildings/:id/rooms -> 401
+GET {{baseUrl}}/api/buildings/1/rooms
+
+### R3 | USER właściciel (Jan) | GET /api/buildings/:id/rooms -> 200
+GET {{baseUrl}}/api/buildings/1/rooms
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R3 | USER obcy (Anna) | GET /api/buildings/:id/rooms -> 200
+GET {{baseUrl}}/api/buildings/1/rooms
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R3 | ADMIN | GET /api/buildings/:id/rooms -> 200
+GET {{baseUrl}}/api/buildings/1/rooms
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R4: POST /api/buildings
+# budynek utworzony przez ADMINa (@name createdBuilding) jest używany w R5 i R6
+
+### R4 | brak tokenu | POST /api/buildings -> 401
+POST {{baseUrl}}/api/buildings
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1, Kraków" }
+
+### R4 | USER właściciel (Jan) | POST /api/buildings -> 403
+POST {{baseUrl}}/api/buildings
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1, Kraków" }
+
+### R4 | USER obcy (Anna) | POST /api/buildings -> 403
+POST {{baseUrl}}/api/buildings
+Authorization: Bearer {{anna.response.body.accessToken}}
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1, Kraków" }
+
+### R4 | ADMIN | POST /api/buildings -> 201
+# @name createdBuilding
+POST {{baseUrl}}/api/buildings
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1, Kraków" }
+
+########## R5: PATCH /api/buildings/:id
+# budynek z R4
+
+### R5 | brak tokenu | PATCH /api/buildings/:id -> 401
+PATCH {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Content-Type: application/json
+
+{ "address": "ul. Zmieniona 2, Kraków" }
+
+### R5 | USER właściciel (Jan) | PATCH /api/buildings/:id -> 403
+PATCH {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "address": "ul. Zmieniona 2, Kraków" }
+
+### R5 | USER obcy (Anna) | PATCH /api/buildings/:id -> 403
+PATCH {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Authorization: Bearer {{anna.response.body.accessToken}}
+Content-Type: application/json
+
+{ "address": "ul. Zmieniona 2, Kraków" }
+
+### R5 | ADMIN | PATCH /api/buildings/:id -> 200
+PATCH {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "address": "ul. Zmieniona 2, Kraków" }
+
+########## R6: DELETE /api/buildings/:id
+# budynek z R4 (pusty - budynek z salami daje 409, zob. E3)
+
+### R6 | brak tokenu | DELETE /api/buildings/:id -> 401
+DELETE {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+
+### R6 | USER właściciel (Jan) | DELETE /api/buildings/:id -> 403
+DELETE {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R6 | USER obcy (Anna) | DELETE /api/buildings/:id -> 403
+DELETE {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R6 | ADMIN | DELETE /api/buildings/:id -> 204
+DELETE {{baseUrl}}/api/buildings/{{createdBuilding.response.body.id}}
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R7: GET /api/rooms
+
+### R7 | brak tokenu | GET /api/rooms -> 401
+GET {{baseUrl}}/api/rooms
+
+### R7 | USER właściciel (Jan) | GET /api/rooms -> 200
+GET {{baseUrl}}/api/rooms
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R7 | USER obcy (Anna) | GET /api/rooms -> 200
+GET {{baseUrl}}/api/rooms
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R7 | ADMIN | GET /api/rooms -> 200
+GET {{baseUrl}}/api/rooms
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R8: GET /api/rooms/:id
+
+### R8 | brak tokenu | GET /api/rooms/:id -> 401
+GET {{baseUrl}}/api/rooms/1
+
+### R8 | USER właściciel (Jan) | GET /api/rooms/:id -> 200
+GET {{baseUrl}}/api/rooms/1
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R8 | USER obcy (Anna) | GET /api/rooms/:id -> 200
+GET {{baseUrl}}/api/rooms/1
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R8 | ADMIN | GET /api/rooms/:id -> 200
+GET {{baseUrl}}/api/rooms/1
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R9: POST /api/rooms
+# sala utworzona przez ADMINa (@name createdRoom) jest używana w R10 i R11
+
+### R9 | brak tokenu | POST /api/rooms -> 401
+POST {{baseUrl}}/api/rooms
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 20 }
+
+### R9 | USER właściciel (Jan) | POST /api/rooms -> 403
+POST {{baseUrl}}/api/rooms
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 20 }
+
+### R9 | USER obcy (Anna) | POST /api/rooms -> 403
+POST {{baseUrl}}/api/rooms
+Authorization: Bearer {{anna.response.body.accessToken}}
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 20 }
+
+### R9 | ADMIN | POST /api/rooms -> 201
+# @name createdRoom
+POST {{baseUrl}}/api/rooms
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 20 }
+
+########## R10: PATCH /api/rooms/:id
+# sala z R9
+
+### R10 | brak tokenu | PATCH /api/rooms/:id -> 401
+PATCH {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Content-Type: application/json
+
+{ "capacity": 25 }
+
+### R10 | USER właściciel (Jan) | PATCH /api/rooms/:id -> 403
+PATCH {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "capacity": 25 }
+
+### R10 | USER obcy (Anna) | PATCH /api/rooms/:id -> 403
+PATCH {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Authorization: Bearer {{anna.response.body.accessToken}}
+Content-Type: application/json
+
+{ "capacity": 25 }
+
+### R10 | ADMIN | PATCH /api/rooms/:id -> 200
+PATCH {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "capacity": 25 }
+
+########## R11: DELETE /api/rooms/:id
+# sala z R9 (bez rezerwacji - sala z rezerwacjami daje 409, zob. E4)
+
+### R11 | brak tokenu | DELETE /api/rooms/:id -> 401
+DELETE {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+
+### R11 | USER właściciel (Jan) | DELETE /api/rooms/:id -> 403
+DELETE {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R11 | USER obcy (Anna) | DELETE /api/rooms/:id -> 403
+DELETE {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R11 | ADMIN | DELETE /api/rooms/:id -> 204
+DELETE {{baseUrl}}/api/rooms/{{createdRoom.response.body.id}}
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R12: GET /api/auth/me
+
+### R12 | brak tokenu | GET /api/auth/me -> 401
+GET {{baseUrl}}/api/auth/me
+
+### R12 | USER właściciel (Jan) | GET /api/auth/me -> 200
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R12 | USER obcy (Anna) | GET /api/auth/me -> 200
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R12 | ADMIN | GET /api/auth/me -> 200
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R13: GET /api/reservations
+
+### R13 | brak tokenu | GET /api/reservations -> 401
+GET {{baseUrl}}/api/reservations
+
+### R13 | USER właściciel (Jan) | GET /api/reservations -> 200 (tylko rezerwacje Jana (user.id = 2))
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R13 | USER obcy (Anna) | GET /api/reservations -> 200 (tylko rezerwacje Anny (user.id = 3))
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R13 | ADMIN | GET /api/reservations -> 200 (rezerwacje wszystkich użytkowników)
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R14: GET /api/reservations?userId=:id
+# filtr userId tylko dla ADMINa - USER dostaje 403 nawet dla własnego id
+
+### R14 | brak tokenu | GET /api/reservations?userId=:id -> 401
+GET {{baseUrl}}/api/reservations?userId=2
+
+### R14 | USER właściciel (Jan) | GET /api/reservations?userId=:id -> 403
+GET {{baseUrl}}/api/reservations?userId=2
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R14 | USER obcy (Anna) | GET /api/reservations?userId=:id -> 403
+GET {{baseUrl}}/api/reservations?userId=2
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R14 | ADMIN | GET /api/reservations?userId=:id -> 200 (tylko rezerwacje Jana)
+GET {{baseUrl}}/api/reservations?userId=2
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R15: POST /api/reservations
+# każda komórka w innym terminie; rezerwacja Jana (@name janReservation) jest używana w R17
+
+### R15 | brak tokenu | POST /api/reservations -> 401
+POST {{baseUrl}}/api/reservations
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 10, "startTime": "2026-12-20T10:00:00Z", "endTime": "2026-12-20T11:00:00Z" }
+
+### R15 | USER właściciel (Jan) | POST /api/reservations -> 201 (user = Jan)
+# @name janReservation
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 10, "startTime": "2026-12-20T10:00:00Z", "endTime": "2026-12-20T11:00:00Z" }
+
+### R15 | USER obcy (Anna) | POST /api/reservations -> 201 (user = Anna)
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{anna.response.body.accessToken}}
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 10, "startTime": "2026-12-20T12:00:00Z", "endTime": "2026-12-20T13:00:00Z" }
+
+### R15 | ADMIN | POST /api/reservations -> 201 (user = admin)
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 10, "startTime": "2026-12-20T14:00:00Z", "endTime": "2026-12-20T15:00:00Z" }
+
+########## R16: GET /api/reservations/:id
+# rezerwacja 1 należy do Jana
+
+### R16 | brak tokenu | GET /api/reservations/:id -> 401
+GET {{baseUrl}}/api/reservations/1
+
+### R16 | USER właściciel (Jan) | GET /api/reservations/:id -> 200
+GET {{baseUrl}}/api/reservations/1
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R16 | USER obcy (Anna) | GET /api/reservations/:id -> 404 (RESERVATION_NOT_FOUND - jak dla nieistniejącej, zob. E2)
+GET {{baseUrl}}/api/reservations/1
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R16 | ADMIN | GET /api/reservations/:id -> 200
+GET {{baseUrl}}/api/reservations/1
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## R17: PATCH /api/reservations/:id/cancel
+# anulowanie zmienia dane, więc wiersz używa dwóch rezerwacji Jana: 1 (z seeda)
+# i tej z R15 - dzięki temu USER obcy i ADMIN trafiają w rezerwację, która jest jeszcze CONFIRMED
+
+### R17 | brak tokenu | PATCH /api/reservations/:id/cancel -> 401 (rezerwacja 1 Jana)
+PATCH {{baseUrl}}/api/reservations/1/cancel
+
+### R17 | USER właściciel (Jan) | PATCH /api/reservations/:id/cancel -> 200 (rezerwacja 1 Jana -> CANCELLED)
+PATCH {{baseUrl}}/api/reservations/1/cancel
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### R17 | USER obcy (Anna) | PATCH /api/reservations/:id/cancel -> 404 (rezerwacja Jana z R15)
+PATCH {{baseUrl}}/api/reservations/{{janReservation.response.body.id}}/cancel
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### R17 | ADMIN | PATCH /api/reservations/:id/cancel -> 200 (rezerwacja Jana z R15 -> CANCELLED)
+PATCH {{baseUrl}}/api/reservations/{{janReservation.response.body.id}}/cancel
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+########## Poza tabelą: ownership listy i reguły biznesowe obowiązujące także ADMINa
+
+### E1 | USER właściciel (Jan) | filtry, sortowanie i paginacja działają, nadal tylko jego rezerwacje -> 200
+GET {{baseUrl}}/api/reservations?status=CONFIRMED&sort=-startTime&limit=1&page=1
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### E2 | USER obcy (Anna) | nieistniejąca rezerwacja -> 404 RESERVATION_NOT_FOUND (identycznie jak R16 | USER obcy)
+GET {{baseUrl}}/api/reservations/999999
+Authorization: Bearer {{anna.response.body.accessToken}}
+
+### E3 | ADMIN | usunięcie budynku, który ma sale -> 409 BUILDING_HAS_ROOMS
+DELETE {{baseUrl}}/api/buildings/1
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### E4 | ADMIN | usunięcie sali, która ma rezerwacje -> 409 ROOM_HAS_RESERVATIONS
+DELETE {{baseUrl}}/api/rooms/1
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### E5 | USER właściciel (Jan) | rezerwacja sali 3, 21.12 10:00-12:00 -> 201
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 10, "startTime": "2026-12-21T10:00:00Z", "endTime": "2026-12-21T12:00:00Z" }
+
+### E6 | ADMIN | ta sama sala, 11:00-13:00 (kolizja z E5) -> 409 ROOM_ALREADY_BOOKED
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 10, "startTime": "2026-12-21T11:00:00Z", "endTime": "2026-12-21T13:00:00Z" }
+
+### E7 | ADMIN | 61 osób w sali na 60 -> 409 ROOM_CAPACITY_EXCEEDED
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "roomId": 3, "participants": 61, "startTime": "2026-12-22T10:00:00Z", "endTime": "2026-12-22T12:00:00Z" }
+
+### E8 | ADMIN | anulowanie rozpoczętej rezerwacji 2 (Anny) -> 409 RESERVATION_ALREADY_STARTED
+PATCH {{baseUrl}}/api/reservations/2/cancel
+Authorization: Bearer {{admin.response.body.accessToken}}

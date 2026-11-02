@@ -56,6 +56,21 @@ class RoomsKnexRepository {
       .returning("id");
     return this.findById(id);
   }
+
+  // Fields left undefined are not part of the UPDATE
+  async update(id, data) {
+    const [row] = await this.#db(TABLE)
+      .where({ id })
+      .update({ name: data.name, capacity: data.capacity })
+      .returning("id");
+    return row ? this.findById(row.id) : null;
+  }
+
+  // A room with reservations fails with 23503 on reservations_room_id_foreign
+  async delete(id) {
+    const deletedCount = await this.#db(TABLE).where({ id }).del();
+    return deletedCount > 0;
+  }
 }
 
 module.exports = RoomsKnexRepository;

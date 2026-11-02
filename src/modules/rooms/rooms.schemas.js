@@ -18,4 +18,13 @@ const createRoomSchema = z
   })
   .strict();
 
-module.exports = { roomIdParamSchema, createRoomSchema };
+// PATCH: name and/or capacity. buildingId cannot change - moving a room (with its
+// reservations) to another building is not an edit of the room.
+const updateRoomSchema = createRoomSchema
+  .omit({ buildingId: true })
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, {
+    message: "At least one field (name, capacity) is required",
+  });
+
+module.exports = { roomIdParamSchema, createRoomSchema, updateRoomSchema };

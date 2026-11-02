@@ -40,6 +40,8 @@ const listReservationsQuerySchema = z
   .object({
     roomId: z.coerce.number().int().positive("roomId must be a positive integer").optional(),
     buildingId: z.coerce.number().int().positive("buildingId must be a positive integer").optional(),
+    // ADMIN only - checked in the service, which knows the current user
+    userId: z.coerce.number().int().positive("userId must be a positive integer").optional(),
     status: z
       .enum(["CONFIRMED", "CANCELLED"], { error: "status must be CONFIRMED or CANCELLED" })
       .optional(),

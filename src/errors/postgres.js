@@ -1,5 +1,6 @@
 // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
 const PG_UNIQUE_VIOLATION = "23505";
+const PG_FOREIGN_KEY_VIOLATION = "23503";
 const PG_EXCLUSION_VIOLATION = "23P01";
 const PG_DEADLOCK_DETECTED = "40P01";
 
@@ -20,6 +21,15 @@ function uniqueViolation(constraint) {
   );
 }
 
+// Thrown on DELETE of a row that is still referenced (ON DELETE RESTRICT)
+function foreignKeyViolation(table, constraint) {
+  return pgError(
+    PG_FOREIGN_KEY_VIOLATION,
+    `update or delete on table "${table}" violates foreign key constraint "${constraint}"`,
+    constraint,
+  );
+}
+
 function exclusionViolation(constraint) {
   return pgError(
     PG_EXCLUSION_VIOLATION,
@@ -30,8 +40,10 @@ function exclusionViolation(constraint) {
 
 module.exports = {
   PG_UNIQUE_VIOLATION,
+  PG_FOREIGN_KEY_VIOLATION,
   PG_EXCLUSION_VIOLATION,
   PG_DEADLOCK_DETECTED,
   uniqueViolation,
+  foreignKeyViolation,
   exclusionViolation,
 };

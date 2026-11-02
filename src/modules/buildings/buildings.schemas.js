@@ -15,10 +15,17 @@ const createBuildingSchema = z
   })
   .strict();
 
+// PATCH: any subset of the fields, but at least one
+const updateBuildingSchema = createBuildingSchema
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, {
+    message: "At least one field (name, address) is required",
+  });
+
 const buildingIdParamSchema = z
   .object({
     id: z.coerce.number().int().positive("id must be a positive integer"),
   })
   .strict();
 
-module.exports = { createBuildingSchema, buildingIdParamSchema };
+module.exports = { createBuildingSchema, updateBuildingSchema, buildingIdParamSchema };

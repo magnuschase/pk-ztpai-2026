@@ -43,6 +43,21 @@ class BuildingsKnexRepository {
       .returning(["id", "name", "address"]);
     return toBuilding({ ...row, rooms_count: 0 });
   }
+
+  // Fields left undefined are not part of the UPDATE
+  async update(id, data) {
+    const [row] = await this.#db(TABLE)
+      .where({ id })
+      .update({ name: data.name, address: data.address })
+      .returning("id");
+    return row ? this.findById(row.id) : null;
+  }
+
+  // A building with rooms fails with 23503 on rooms_building_id_foreign
+  async delete(id) {
+    const deletedCount = await this.#db(TABLE).where({ id }).del();
+    return deletedCount > 0;
+  }
 }
 
 module.exports = BuildingsKnexRepository;

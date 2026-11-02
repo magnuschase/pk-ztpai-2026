@@ -30,7 +30,8 @@ const SORT_COLUMNS = {
 };
 
 // Expects the query to have "res" (reservations) and "r" (rooms) in FROM
-function applyFilters(query, { roomId, buildingId, status, from, to }) {
+function applyFilters(query, { userId, roomId, buildingId, status, from, to }) {
+  if (userId !== undefined) query.where("res.user_id", userId);
   if (roomId !== undefined) query.where("res.room_id", roomId);
   if (buildingId !== undefined) query.where("r.building_id", buildingId);
   if (status !== undefined) query.where("res.status", status);

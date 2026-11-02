@@ -2,7 +2,9 @@ const {
   NotFoundError,
   ConflictError,
   ValidationError,
+  ForbiddenError,
 } = require("../../errors");
+const { ROLES } = require("../users/users.roles");
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -15,6 +17,25 @@ function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
 
+// Ownership: ADMIN reaches every reservation, a USER only their own.
+// currentUser = req.user from the token ({ id, role }).
+function canAccess(reservation, currentUser) {
+  return currentUser.role === ROLES.ADMIN || reservation.userId === currentUser.id;
+}
+
+// The owner filter is added after validation, so no query parameter can widen it.
+// ?userId= is an ADMIN tool - for a USER it is 403, not silently ignored: an ignored
+// filter returns data that does not match the request (the client asks for user 3's
+// reservations and gets its own, with nothing saying so). The 403 reveals nothing -
+// it is the same for every userId, existing or not.
+function scopeFiltersToUser(filters, currentUser) {
+  if (currentUser.role === ROLES.ADMIN) return filters;
+  if (filters.userId !== undefined) {
+    throw new ForbiddenError("Only an ADMIN can filter reservations by userId");
+  }
+  return { ...filters, userId: currentUser.id };
+}
+
 function createReservationsService({
   reservationsRepository,
   roomsRepository,
@@ -22,9 +43,9 @@ function createReservationsService({
   now,
 }) {
   // sort comes validated from the whitelist, e.g. "startTime" or "-createdAt"
-  async function listReservations({ filters, sort, page, limit }) {
+  async function listReservations({ filters, sort, page, limit }, currentUser) {
     const { items, total } = await reservationsRepository.findPage({
-      filters,
+      filters: scopeFiltersToUser(filters, currentUser),
       sort: {
         field: sort.replace(/^-/, ""),
         direction: sort.startsWith("-") ? "desc" : "asc",
@@ -36,9 +57,11 @@ function createReservationsService({
     return { items, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
-  async function getReservationById(id) {
+  // Someone else's reservation gives a USER the same 404 as one that does not exist.
+  // Reservations are private - a 403 would confirm that a reservation with this ID exists.
+  async function getReservationById(id, currentUser) {
     const reservation = await reservationsRepository.findById(id);
-    if (!reservation) {
+    if (!reservation || !canAccess(reservation, currentUser)) {
       throw new NotFoundError("Reservation not found", "RESERVATION_NOT_FOUND");
     }
     return reservation;
@@ -148,8 +171,10 @@ function createReservationsService({
     });
   }
 
-  async function cancelReservation(id) {
-    const reservation = await getReservationById(id);
+  // The role decides only WHICH reservations can be cancelled (ownership check in
+  // getReservationById). The rules below apply to ADMIN as well - there is no bypass.
+  async function cancelReservation(id, currentUser) {
+    const reservation = await getReservationById(id, currentUser);
 
     if (reservation.status === "CANCELLED") {
       return reservation;
