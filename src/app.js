@@ -25,7 +25,14 @@ function createApp({
   app.use(requestLogger);
   app.use(express.json());
 
+  // Public: register and login (GET /api/auth/me authenticates on its own)
   app.use("/api/auth", createAuthRouter({ usersRepository, tokenService, authenticate }));
+
+  // Everything below requires a valid token - a new route is protected by default,
+  // nobody has to remember to add the middleware. Public routes go above this line.
+  // Unknown routes also end here, so without a token they give 401, not 404.
+  app.use(authenticate);
+
   app.use("/api/buildings", createBuildingsRouter({ buildingsRepository, roomsRepository }));
   app.use("/api/rooms", createRoomsRouter({ roomsRepository, buildingsRepository }));
   app.use(

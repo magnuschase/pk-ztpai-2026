@@ -6,7 +6,7 @@ const TABLE = "reservations";
 const COLUMN_BY_FIELD = {
   id: "id",
   roomId: "room_id",
-  reservedBy: "reserved_by",
+  userId: "user_id",
   participants: "participants",
   startTime: "start_time",
   endTime: "end_time",
@@ -18,6 +18,8 @@ const COLUMN_BY_FIELD = {
 const SELECT_COLUMNS = [
   ...Object.values(COLUMN_BY_FIELD).map((column) => `res.${column}`),
   { room_name: "r.name", building_id: "r.building_id", building_name: "b.name" },
+  // Only the email - never password_hash
+  { user_email: "u.email" },
 ];
 
 // Sort whitelist: API field -> column. User input never reaches ORDER BY directly.
@@ -51,7 +53,8 @@ function toReservation(row) {
       name: row.room_name,
       building: { id: row.building_id, name: row.building_name },
     },
-    reservedBy: row.reserved_by,
+    userId: row.user_id,
+    user: { id: row.user_id, email: row.user_email },
     participants: row.participants,
     startTime: toIsoString(row.start_time),
     endTime: toIsoString(row.end_time),
@@ -86,11 +89,12 @@ class ReservationsKnexRepository {
     this.#db = db;
   }
 
-  // Reservation + room + building in one query, no matter how many rows (no N+1)
+  // Reservation + room + building + owner in one query, no matter how many rows (no N+1)
   #selectWithRoom() {
     return this.#db({ res: TABLE })
       .join({ r: "rooms" }, "r.id", "res.room_id")
       .join({ b: "buildings" }, "b.id", "r.building_id")
+      .join({ u: "users" }, "u.id", "res.user_id")
       .select(SELECT_COLUMNS);
   }
 

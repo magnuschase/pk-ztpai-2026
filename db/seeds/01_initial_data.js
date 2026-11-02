@@ -2,9 +2,21 @@ const { hashPassword } = require("../../src/modules/auth/password");
 
 const HOUR_MS = 60 * 60 * 1000;
 
-// Local development account - the seed is the only way to create an ADMIN
-// (registration through the API always creates a USER)
-const ADMIN = { email: "admin@example.com", password: "admin-dev-password" };
+// Local development accounts. The seed is the only way to create an ADMIN
+// (registration through the API always creates a USER).
+const ADMIN_PASSWORD = "admin-dev-password";
+const USER_PASSWORD = "user-dev-password";
+
+// Reservation owners - the same addresses the user_id migration derives from the
+// old reserved_by names ("Piotr Wiśniewski" -> piotr.wisniewski@example.com)
+const USERS = [
+  { email: "admin@example.com", role: "ADMIN" }, // 1
+  { email: "jan.kowalski@example.com", role: "USER" }, // 2
+  { email: "anna.nowak@example.com", role: "USER" }, // 3
+  { email: "piotr.wisniewski@example.com", role: "USER" }, // 4
+  { email: "maria.zielinska@example.com", role: "USER" }, // 5
+  { email: "katarzyna.wojcik@example.com", role: "USER" }, // 6
+];
 
 /**
  * @param { import("knex").Knex } knex
@@ -13,9 +25,13 @@ exports.seed = async function (knex) {
   // RESTART IDENTITY resets the sequences, so every run gives the same IDs (starting at 1)
   await knex.raw("TRUNCATE TABLE reservations, rooms, buildings, users RESTART IDENTITY CASCADE");
 
-  await knex("users").insert([
-    { email: ADMIN.email, password_hash: await hashPassword(ADMIN.password), role: "ADMIN" }, // 1
-  ]);
+  const userRows = [];
+  for (const { email, role } of USERS) {
+    // Hashed one by one - every row gets its own salt, so equal passwords have different hashes
+    const password = role === "ADMIN" ? ADMIN_PASSWORD : USER_PASSWORD;
+    userRows.push({ email, role, password_hash: await hashPassword(password) });
+  }
+  await knex("users").insert(userRows);
 
   // Times are relative to the current full hour, so the "already started"
   // reservation is in progress right after seeding.
@@ -40,7 +56,7 @@ exports.seed = async function (knex) {
     // 1: upcoming
     {
       room_id: 1,
-      reserved_by: "Jan Kowalski",
+      user_id: 2, // jan.kowalski
       participants: 20,
       start_time: at(24),
       end_time: at(26),
@@ -50,7 +66,7 @@ exports.seed = async function (knex) {
     // 2: already started (RESERVATION_ALREADY_STARTED on cancel)
     {
       room_id: 2,
-      reserved_by: "Anna Nowak",
+      user_id: 3, // anna.nowak
       participants: 10,
       start_time: at(-1),
       end_time: at(2),
@@ -60,7 +76,7 @@ exports.seed = async function (knex) {
     // 3: starts exactly when reservation 1 ends - touching ranges are allowed
     {
       room_id: 1,
-      reserved_by: "Piotr Wiśniewski",
+      user_id: 4, // piotr.wisniewski
       participants: 15,
       start_time: at(26),
       end_time: at(27),
@@ -70,7 +86,7 @@ exports.seed = async function (knex) {
     // 4: cancelled
     {
       room_id: 4,
-      reserved_by: "Maria Zielińska",
+      user_id: 5, // maria.zielinska
       participants: 18,
       start_time: at(48),
       end_time: at(50),
@@ -81,7 +97,7 @@ exports.seed = async function (knex) {
     // 5: same slot as the cancelled one - a cancelled reservation does not block the room
     {
       room_id: 4,
-      reserved_by: "Katarzyna Wójcik",
+      user_id: 6, // katarzyna.wojcik
       participants: 12,
       start_time: at(48),
       end_time: at(50),

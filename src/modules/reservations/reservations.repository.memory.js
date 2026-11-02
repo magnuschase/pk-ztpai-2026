@@ -21,10 +21,11 @@ class ReservationsRepository {
     this.#nextId = nextIdOf(db.reservations);
   }
 
-  // Emulates JOIN rooms JOIN buildings
+  // Emulates JOIN rooms JOIN buildings JOIN users
   #withRoom(reservation) {
     const room = this.#db.rooms.find((room) => room.id === reservation.roomId);
     const building = this.#db.buildings.find((building) => building.id === room.buildingId);
+    const user = this.#db.users.find((user) => user.id === reservation.userId);
     return {
       ...reservation,
       room: {
@@ -32,6 +33,7 @@ class ReservationsRepository {
         name: room.name,
         building: { id: building.id, name: building.name },
       },
+      user: { id: user.id, email: user.email },
     };
   }
 

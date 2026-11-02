@@ -1,5 +1,5 @@
 @baseUrl = http://localhost:3000
-# Przed testami: pnpm migrate:latest && pnpm seed:run   (admin@example.com = id 1)
+# Przed testami: pnpm migrate:latest && pnpm seed:run   (id 1-6: admin + 5 użytkowników z rezerwacjami)
 # Równoległe rejestracje: pnpm register-race 10
 
 ### 1. Rejestracja -> 201, email znormalizowany do małych liter, rola USER, bez hasha
@@ -7,7 +7,7 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "email": "Jan.Kowalski@example.com",
+  "email": "Tomasz.Lewandowski@example.com",
   "password": "bardzo-dlugie-haslo"
 }
 
@@ -16,7 +16,7 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "email": "  JAN.KOWALSKI@EXAMPLE.COM ",
+  "email": "  TOMASZ.LEWANDOWSKI@EXAMPLE.COM ",
   "password": "inne-dlugie-haslo"
 }
 

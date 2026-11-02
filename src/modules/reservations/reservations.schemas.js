@@ -10,14 +10,11 @@ const isoDateTimeWithOffset = z
     message: "Must include a timezone offset (e.g. Z or +01:00)",
   });
 
+// No owner field - the owner always comes from the token. .strict() rejects
+// "userId" / "reservedBy" in the body with 400 instead of ignoring them.
 const createReservationSchema = z
   .object({
     roomId: z.number().int().positive("roomId must be a positive integer"),
-    reservedBy: z
-      .string()
-      .trim()
-      .min(3, "reservedBy must be at least 3 characters long")
-      .max(100, "reservedBy must be at most 100 characters long"),
     participants: z.number().int().positive("participants must be a positive integer"),
     startTime: isoDateTimeWithOffset,
     endTime: isoDateTimeWithOffset,

@@ -49,14 +49,18 @@ function createReservationsService({
   // and once they get it, their overlap check sees the reservation committed before.
   // The conflicting reservation does not exist yet, so there is no reservation row
   // to lock - the room row is what every booking of this room has in common.
-  async function createReservation(input) {
-    return runInTransaction((repositories) => createReservationInTransaction(repositories, input));
+  // currentUser = req.user from the token - the only source of the owner
+  async function createReservation(input, currentUser) {
+    return runInTransaction((repositories) =>
+      createReservationInTransaction(repositories, input, currentUser),
+    );
   }
 
   // Gets repositories bound to the transaction (they shadow the outer ones on purpose)
   async function createReservationInTransaction(
     { roomsRepository, reservationsRepository },
     input,
+    currentUser,
   ) {
     const room = await roomsRepository.findByIdForUpdate(input.roomId);
     if (!room) {
@@ -133,7 +137,7 @@ function createReservationsService({
 
     return reservationsRepository.create({
       roomId: input.roomId,
-      reservedBy: input.reservedBy,
+      userId: currentUser.id,
       participants: input.participants,
       startTime: new Date(startMs).toISOString(),
       endTime: new Date(endMs).toISOString(),

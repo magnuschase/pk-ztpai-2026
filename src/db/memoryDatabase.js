@@ -1,20 +1,27 @@
 const HOUR_MS = 60 * 60 * 1000;
 
-// In-memory "database" shared by the in-memory repositories, so they can
-// resolve relations (room -> building, reservation -> room) like JOINs do.
+// bcrypt (cost 12) of "admin-dev-password" and "user-dev-password" - the same accounts
+// as in the knex seed
+const ADMIN_PASSWORD_HASH = "$2b$12$ky6Yybu9Qd.78UQvf3W2LOIXVUxOYEeUotsnPoS4fymu67sDI9Oja";
+const USER_PASSWORD_HASH = "$2b$12$8Xr/nhFsmhvfcH6oQJMcmuKa6E0/NUtdlM2l0ZxB1DmueSavShJ6m";
+
+// In-memory "database" shared by the in-memory repositories, so they can resolve
+// relations (room -> building, reservation -> room / user) like JOINs do.
 function createMemoryDatabase() {
   const now = Date.now();
+  const user = (id, email, role, passwordHash) => ({
+    id,
+    email,
+    passwordHash,
+    role,
+    createdAt: new Date(now).toISOString(),
+  });
 
   return {
     users: [
-      {
-        id: 1,
-        email: "admin@example.com",
-        // bcrypt (cost 12) of "admin-dev-password" - the same account as in the knex seed
-        passwordHash: "$2b$12$ky6Yybu9Qd.78UQvf3W2LOIXVUxOYEeUotsnPoS4fymu67sDI9Oja",
-        role: "ADMIN",
-        createdAt: new Date(now).toISOString(),
-      },
+      user(1, "admin@example.com", "ADMIN", ADMIN_PASSWORD_HASH),
+      user(2, "jan.kowalski@example.com", "USER", USER_PASSWORD_HASH),
+      user(3, "anna.nowak@example.com", "USER", USER_PASSWORD_HASH),
     ],
     buildings: [
       { id: 1, name: "Budynek A", address: "ul. Warszawska 24, Kraków" },
@@ -30,7 +37,7 @@ function createMemoryDatabase() {
       {
         id: 1,
         roomId: 1,
-        reservedBy: "Jan Kowalski",
+        userId: 2,
         participants: 20,
         startTime: new Date(now + 24 * HOUR_MS).toISOString(),
         endTime: new Date(now + 26 * HOUR_MS).toISOString(),
@@ -42,7 +49,7 @@ function createMemoryDatabase() {
       {
         id: 2,
         roomId: 2,
-        reservedBy: "Anna Nowak",
+        userId: 3,
         participants: 10,
         // started half an hour ago and not yet finished -> used to test
         // "cannot cancel a reservation that has already started"

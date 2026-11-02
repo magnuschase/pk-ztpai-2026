@@ -11,6 +11,21 @@ const API_URL = process.env.API_URL || `http://localhost:${process.env.PORT || 3
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
+// Seed account (db/seeds/01_initial_data.js) - the requests need a token
+const CREDENTIALS = { email: "jan.kowalski@example.com", password: "user-dev-password" };
+
+async function login() {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(CREDENTIALS),
+  });
+  if (!res.ok) {
+    throw new Error(`Login as ${CREDENTIALS.email} failed (${res.status}) - run \`pnpm seed:run\``);
+  }
+  return (await res.json()).accessToken;
+}
+
 // A slot after every existing reservation, so each run starts from a free range
 async function findFreeSlot() {
   const { latest } = await knex("reservations").max({ latest: "end_time" }).first();
@@ -19,10 +34,10 @@ async function findFreeSlot() {
   return { start, end: new Date(start.getTime() + 2 * HOUR_MS) };
 }
 
-async function sendReservation(body) {
+async function sendReservation(body, accessToken) {
   const res = await fetch(`${API_URL}/api/reservations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(body),
   });
   const payload = await res.json().catch(() => null);
@@ -36,10 +51,10 @@ async function main() {
   const roomId = Number(process.argv[2] ?? 3);
   const requests = Number(process.argv[3] ?? 10);
   const { start, end } = await findFreeSlot();
+  const accessToken = await login();
 
   const body = {
     roomId,
-    reservedBy: "Double Booking Test",
     participants: 10,
     startTime: start.toISOString(),
     endTime: end.toISOString(),
@@ -48,7 +63,7 @@ async function main() {
   console.log(`room ${roomId}, ${body.startTime} - ${body.endTime}\n`);
 
   const results = await Promise.all(
-    Array.from({ length: requests }, () => sendReservation(body)),
+    Array.from({ length: requests }, () => sendReservation(body, accessToken)),
   );
   results.forEach((result, i) => {
     console.log(`request ${String(i + 1).padStart(2)}: ${result.status} ${result.detail}`);

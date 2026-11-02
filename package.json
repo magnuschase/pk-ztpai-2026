@@ -17,6 +17,7 @@
     "reservations:add": "node scripts/add-reservations.js",
     "double-booking": "node scripts/double-booking.js",
     "register-race": "node scripts/register-race.js",
+    "auth:401": "node scripts/auth-401.js",
     "db:reset": "knex migrate:rollback --all && knex migrate:latest && knex seed:run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

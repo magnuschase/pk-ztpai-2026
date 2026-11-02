@@ -1,0 +1,96 @@
+@baseUrl = http://localhost:3000
+# Przed testami: pnpm migrate:latest && pnpm seed:run
+# Konta z seeda: jan.kowalski@example.com (id 2), anna.nowak@example.com (id 3), ... / user-dev-password
+# Wszystkie przypadki 401 jednym poleceniem (prawdziwa podmiana znaku w podpisie i roli w payloadzie):
+#   pnpm auth:401                                       (wygasły token pominięty)
+#   JWT_EXPIRES_IN=10s pnpm dev  +  pnpm auth:401       (także wygasły token)
+
+### 1. Logowanie Jana -> 200
+# @name loginJan
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "user-dev-password"
+}
+
+### 2. Brak nagłówka Authorization -> 401 MISSING_TOKEN
+GET {{baseUrl}}/api/reservations
+
+### 3. Nagłówek w złym formacie (Basic) -> 401 INVALID_AUTH_HEADER
+GET {{baseUrl}}/api/reservations
+Authorization: Basic amFuOnRham5lLWhhc2xv
+
+### 4. Bearer bez tokenu -> 401 INVALID_AUTH_HEADER
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer
+
+### 5. Zły podpis (dopisany znak na końcu tokenu) -> 401 INVALID_TOKEN
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer {{loginJan.response.body.accessToken}}x
+
+### 6. Zmieniony payload ({"role":"ADMIN","sub":"2",...}) z podpisem, który do niego nie pasuje -> 401 INVALID_TOKEN
+# Wariant z oryginalnym podpisem tokenu Jana: pnpm auth:401
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiQURNSU4iLCJpYXQiOjE3OTM2MzMyNzUsImV4cCI6NDEwMjQ0NDgwMCwic3ViIjoiMiJ9.Dp3eWgJ1HhC4UoH6QjGqXK1yXq2cZ0vYlB8tq9T5m3A
+
+### 7. Wygasły token -> 401 TOKEN_EXPIRED
+# Serwer z JWT_EXPIRES_IN=10s pnpm dev, wykonaj krok 1, odczekaj ponad 10 s i wyślij:
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer {{loginJan.response.body.accessToken}}
+
+### 8. Budynki bez tokenu -> 401 (wszystkie endpointy poza register/login wymagają tokenu)
+GET {{baseUrl}}/api/buildings
+
+### 9. Sala bez tokenu -> 401
+GET {{baseUrl}}/api/rooms/1
+
+### 10. Nieistniejąca trasa bez tokenu -> 401 (nie 404 - bez tokenu nie zdradzamy, jakie trasy istnieją)
+GET {{baseUrl}}/api/nie-ma-takiej-trasy
+
+### 11. Nowa rezerwacja -> 201, właściciel z tokenu: "user": { "id": 2, "email": "jan.kowalski@example.com" }
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{loginJan.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "participants": 10,
+  "startTime": "2026-12-15T10:00:00Z",
+  "endTime": "2026-12-15T12:00:00Z"
+}
+
+### 12. userId w body (próba rezerwacji na kogoś innego) -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{loginJan.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "userId": 3,
+  "participants": 10,
+  "startTime": "2026-12-16T10:00:00Z",
+  "endTime": "2026-12-16T12:00:00Z"
+}
+
+### 13. Stare pole reservedBy w body -> 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/reservations
+Authorization: Bearer {{loginJan.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "reservedBy": "Anna Nowak",
+  "participants": 10,
+  "startTime": "2026-12-16T10:00:00Z",
+  "endTime": "2026-12-16T12:00:00Z"
+}
+
+### 14. Rezerwacja z seeda -> 200, "user" zamiast "reservedBy"
+GET {{baseUrl}}/api/reservations/1
+Authorization: Bearer {{loginJan.response.body.accessToken}}
+
+### 15. Lista rezerwacji -> 200, każda z "user": { id, email }
+GET {{baseUrl}}/api/reservations
+Authorization: Bearer {{loginJan.response.body.accessToken}}

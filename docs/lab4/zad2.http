@@ -1,25 +1,25 @@
 @baseUrl = http://localhost:3000
-# Przed testami: pnpm seed:run   (admin@example.com / admin-dev-password = id 1)
+# Przed testami: pnpm seed:run   (id 1-6, admin@example.com / admin-dev-password)
 # Zdekodowany payload: accessToken z kroku 1 wklej na https://jwt.io
-#   -> { "role": "USER", "iat": ..., "exp": iat + 900, "sub": "2" }, bez emaila i hasha
+#   -> { "role": "USER", "iat": ..., "exp": iat + 900, "sub": "7" }, bez emaila i hasha
 # Kroki 1 i 7 zapisują token (REST Client: # @name), kolejne go używają
 
-### 0. Rejestracja Jana -> 201 (albo 409 EMAIL_TAKEN, jeśli już istnieje)
+### 0. Rejestracja Tomasza -> 201 (albo 409 EMAIL_TAKEN, jeśli już istnieje)
 POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "email": "Jan.Kowalski@example.com",
+  "email": "Tomasz.Lewandowski@example.com",
   "password": "bardzo-dlugie-haslo"
 }
 
 ### 1. Logowanie -> 200 { accessToken, tokenType: "Bearer", expiresIn: "15m" }
-# @name loginJan
+# @name loginTomasz
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "jan.kowalski@example.com",
+  "email": "tomasz.lewandowski@example.com",
   "password": "bardzo-dlugie-haslo"
 }
 
@@ -28,7 +28,7 @@ POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "  JAN.Kowalski@Example.COM ",
+  "email": "  TOMASZ.Lewandowski@Example.COM ",
   "password": "bardzo-dlugie-haslo"
 }
 
@@ -37,7 +37,7 @@ POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "jan.kowalski@example.com",
+  "email": "tomasz.lewandowski@example.com",
   "password": "zle-haslo-123"
 }
 
@@ -55,12 +55,12 @@ POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "jan.kowalski@example.com"
+  "email": "tomasz.lewandowski@example.com"
 }
 
 ### 6. Dane zalogowanego użytkownika -> 200 (bez hasha)
 GET {{baseUrl}}/api/auth/me
-Authorization: Bearer {{loginJan.response.body.accessToken}}
+Authorization: Bearer {{loginTomasz.response.body.accessToken}}
 
 ### 7. Logowanie admina -> 200
 # @name loginAdmin

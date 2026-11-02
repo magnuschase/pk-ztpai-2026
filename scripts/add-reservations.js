@@ -19,6 +19,11 @@ async function main() {
     throw new Error("No rooms in the database - run `pnpm seed:run` first");
   }
 
+  const userIds = await knex("users").where({ role: "USER" }).orderBy("id").pluck("id");
+  if (userIds.length === 0) {
+    throw new Error("No USER accounts in the database - run `pnpm seed:run` first");
+  }
+
   // Start after the latest existing reservation, so the new ones never overlap anything
   const { latest } = await knex("reservations").max({ latest: "end_time" }).first();
   const start = new Date(Math.max(Date.now(), latest ? latest.getTime() : 0));
@@ -27,7 +32,7 @@ async function main() {
   const now = Date.now();
   const rows = Array.from({ length: count }, (_, i) => ({
     room_id: roomIds[i % roomIds.length],
-    reserved_by: `Test User ${i + 1}`,
+    user_id: userIds[i % userIds.length],
     participants: 5 + ((i * 7) % 15),
     start_time: new Date(start.getTime() + i * HOUR_MS),
     end_time: new Date(start.getTime() + (i + 1) * HOUR_MS),
