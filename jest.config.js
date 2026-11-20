@@ -12,5 +12,17 @@ module.exports = {
         "^knex$": "<rootDir>/tests/unit/noDatabase.js",
       },
     },
+    {
+      displayName: "integration",
+      testEnvironment: "node",
+      testMatch: ["<rootDir>/tests/integration/**/*.test.js"],
+      // Once per run (only when integration tests are selected): drop and create
+      // the test database, so every run starts from an empty one
+      globalSetup: "<rootDir>/tests/integration/globalSetup.js",
+      // Before each test file: test configuration
+      setupFiles: ["<rootDir>/tests/integration/setupEnv.js"],
+      // bcrypt (cost 12) in register / login takes a few hundred ms per call
+      testTimeout: 15000,
+    },
   ],
 };

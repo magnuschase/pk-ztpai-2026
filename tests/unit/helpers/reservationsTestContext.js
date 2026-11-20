@@ -1,5 +1,4 @@
-const RoomsRepository = require("../../../src/modules/rooms/rooms.repository.memory");
-const ReservationsRepository = require("../../../src/modules/reservations/reservations.repository.memory");
+const { createMemoryRepositories } = require("../../../src/db/repositories");
 const createReservationsService = require("../../../src/modules/reservations/reservations.service");
 
 // The injected "now" of every test: today 08:00 UTC
@@ -61,20 +60,19 @@ function createReservationsTestContext({ reservations = [] } = {}) {
     reservations: reservations.map(storedReservation),
   };
 
-  const repositories = {
-    roomsRepository: new RoomsRepository(db),
-    reservationsRepository: new ReservationsRepository(db),
-  };
+  // The same in-memory repositories and runInTransaction as REPOSITORY_DRIVER=memory
+  const { roomsRepository, reservationsRepository, runInTransaction } =
+    createMemoryRepositories(db);
   const clock = createTestClock();
 
   const service = createReservationsService({
-    ...repositories,
-    // Tests run one call at a time, so the unit of work can run directly
-    runInTransaction: (work) => work(repositories),
+    roomsRepository,
+    reservationsRepository,
+    runInTransaction,
     now: clock.now,
   });
 
-  return { service, clock, ...repositories };
+  return { service, clock, roomsRepository, reservationsRepository };
 }
 
 module.exports = {

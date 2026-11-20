@@ -2,56 +2,12 @@
 const config = require("./config");
 const knex = require("knex");
 const createApp = require("./app");
-const { createMemoryDatabase } = require("./db/memoryDatabase");
-const BuildingsMemoryRepository = require("./modules/buildings/buildings.repository.memory");
-const BuildingsKnexRepository = require("./modules/buildings/buildings.repository.knex");
-const RoomsMemoryRepository = require("./modules/rooms/rooms.repository.memory");
-const RoomsKnexRepository = require("./modules/rooms/rooms.repository.knex");
-const ReservationsMemoryRepository = require("./modules/reservations/reservations.repository.memory");
-const ReservationsKnexRepository = require("./modules/reservations/reservations.repository.knex");
-const UsersMemoryRepository = require("./modules/users/users.repository.memory");
-const UsersKnexRepository = require("./modules/users/users.repository.knex");
-
-function createKnexRepositories(db) {
-  return {
-    usersRepository: new UsersKnexRepository(db),
-    buildingsRepository: new BuildingsKnexRepository(db),
-    roomsRepository: new RoomsKnexRepository(db),
-    reservationsRepository: new ReservationsKnexRepository(db),
-  };
-}
+const { createKnexRepositories, createMemoryRepositories } = require("./db/repositories");
 
 // The only place that decides which repository implementation the app uses
 function createRepositories(driver) {
-  if (driver === "memory") {
-    const db = createMemoryDatabase();
-    const repositories = {
-      usersRepository: new UsersMemoryRepository(db),
-      buildingsRepository: new BuildingsMemoryRepository(db),
-      roomsRepository: new RoomsMemoryRepository(db),
-      reservationsRepository: new ReservationsMemoryRepository(db),
-    };
-    // No transactions in memory: units of work run one at a time (like a global lock).
-    // There is no rollback, so work should write only at the end.
-    let queue = Promise.resolve();
-    function runInTransaction(work) {
-      const result = queue.then(() => work(repositories));
-      queue = result.catch(() => {});
-      return result;
-    }
-    return { ...repositories, runInTransaction };
-  }
-
-  if (driver === "knex") {
-    const db = knex(require("../knexfile"));
-    // Repositories passed to `work` run every query on the same transaction;
-    // commit when `work` resolves, rollback when it throws
-    function runInTransaction(work) {
-      return db.transaction((trx) => work(createKnexRepositories(trx)));
-    }
-    return { ...createKnexRepositories(db), runInTransaction };
-  }
-
+  if (driver === "memory") return createMemoryRepositories();
+  if (driver === "knex") return createKnexRepositories(knex(require("../knexfile")));
   throw new Error(`Unknown REPOSITORY_DRIVER "${driver}" (expected "knex" or "memory")`);
 }
 
