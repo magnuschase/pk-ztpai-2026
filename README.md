@@ -1,5 +1,7 @@
 # Room Booking API
 
+[![CI](https://github.com/magnuschase/pk-ztpai-2026/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/magnuschase/pk-ztpai-2026/actions/workflows/ci.yml)
+
 REST API for booking rooms: buildings, rooms and reservations with JWT authentication
 (roles `USER` / `ADMIN`). Node.js + Express 5, PostgreSQL + Knex, validation with Zod,
 OpenAPI documentation in Swagger UI.
@@ -85,3 +87,17 @@ pnpm test               # both
 Integration tests need PostgreSQL (`pnpm db:up`). They use a separate database, by
 default `room_booking_test` (see `TEST_DATABASE_URL` in `.env.example`), which is dropped
 and recreated on every run - never the development one.
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and
+on every pull request, in two parallel jobs:
+
+- **Tests** - PostgreSQL 16 as a service container (started with a health check), then
+  checkout, Node.js 24 with the pnpm store cache, `pnpm install --frozen-lockfile` and
+  `pnpm test` (unit and integration tests).
+- **Docker image builds** - `docker build .` with the same `Dockerfile` as Compose.
+
+The workflow contains no secrets: the CI database accepts connections without a password
+(it exists only for the duration of the job), and the integration tests set their own
+JWT secret. The badge at the top shows the status of the latest run on `main`.
