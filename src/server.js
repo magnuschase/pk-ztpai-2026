@@ -3,6 +3,7 @@ const config = require("./config");
 const knex = require("knex");
 const createApp = require("./app");
 const { createKnexRepositories, createMemoryRepositories } = require("./db/repositories");
+const createEventBus = require("./events/eventBus");
 
 // Close the HTTP server and the pool in time - Docker sends SIGKILL 10 s after SIGTERM
 const SHUTDOWN_TIMEOUT_MS = 8000;
@@ -12,7 +13,9 @@ const SHUTDOWN_TIMEOUT_MS = 8000;
 const db = config.repositoryDriver === "knex" ? knex(require("../knexfile")) : null;
 const repositories = db ? createKnexRepositories(db) : createMemoryRepositories();
 
-const app = createApp({ ...repositories, jwt: config.jwt });
+const eventBus = createEventBus();
+
+const app = createApp({ ...repositories, jwt: config.jwt, eventBus });
 
 // Express 5 passes listen errors (e.g. EADDRINUSE) to the callback
 const server = app.listen(config.port, (err) => {
@@ -24,8 +27,9 @@ const server = app.listen(config.port, (err) => {
 });
 
 // SIGTERM: docker stop / docker compose down, SIGINT: Ctrl+C. Stop accepting connections,
-// let requests in progress finish, then close the database pool. The process then exits
-// on its own - nothing is left in the event loop.
+// let requests in progress finish, wait for the event listeners they triggered (audit log
+// writes), then close the database pool. The process then exits on its own - nothing is
+// left in the event loop.
 let shuttingDown = false;
 
 function shutdown(signal) {
@@ -47,6 +51,8 @@ function shutdown(signal) {
     } else {
       console.log("HTTP server closed");
     }
+    await eventBus.drain();
+    console.log("Event listeners finished");
     if (db) {
       await db.destroy();
       console.log("Database pool closed");

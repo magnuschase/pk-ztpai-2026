@@ -7,6 +7,8 @@ const ReservationsMemoryRepository = require("../modules/reservations/reservatio
 const ReservationsKnexRepository = require("../modules/reservations/reservations.repository.knex");
 const UsersMemoryRepository = require("../modules/users/users.repository.memory");
 const UsersKnexRepository = require("../modules/users/users.repository.knex");
+const AuditLogMemoryRepository = require("../modules/auditLog/auditLog.repository.memory");
+const AuditLogKnexRepository = require("../modules/auditLog/auditLog.repository.knex");
 
 // Repositories on a knex instance (pool) or on a transaction
 function knexRepositoriesOn(db) {
@@ -15,6 +17,7 @@ function knexRepositoriesOn(db) {
     buildingsRepository: new BuildingsKnexRepository(db),
     roomsRepository: new RoomsKnexRepository(db),
     reservationsRepository: new ReservationsKnexRepository(db),
+    auditLogRepository: new AuditLogKnexRepository(db),
   };
 }
 
@@ -34,6 +37,7 @@ function createMemoryRepositories(db = createMemoryDatabase()) {
     buildingsRepository: new BuildingsMemoryRepository(db),
     roomsRepository: new RoomsMemoryRepository(db),
     reservationsRepository: new ReservationsMemoryRepository(db),
+    auditLogRepository: new AuditLogMemoryRepository(db),
   };
   // No transactions in memory: units of work run one at a time (like a global lock).
   // There is no rollback, so work should write only at the end.

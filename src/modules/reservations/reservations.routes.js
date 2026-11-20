@@ -13,6 +13,7 @@ function createReservationsRouter({
   roomsRepository,
   runInTransaction,
   now,
+  eventBus,
 }) {
   const router = Router();
   const reservationsService = createReservationsService({
@@ -20,6 +21,7 @@ function createReservationsRouter({
     roomsRepository,
     runInTransaction,
     now,
+    eventBus,
   });
   const reservationsController = createReservationsController({ reservationsService });
 

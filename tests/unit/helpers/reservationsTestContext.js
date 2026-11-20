@@ -45,7 +45,14 @@ function storedReservation(data, index) {
 
 // Builds a brand new in-memory database, repositories, clock and service, so every
 // test starts from its own state and tests pass in any order.
-function createReservationsTestContext({ reservations = [] } = {}) {
+//   eventBus        - publish is a jest.fn() unless a test passes its own bus
+//   wrapTransaction - (runInTransaction) => replacement, e.g. to record when the
+//                     transaction resolves (commits) or make the commit fail
+function createReservationsTestContext({
+  reservations = [],
+  eventBus = { publish: jest.fn() },
+  wrapTransaction = (runInTransaction) => runInTransaction,
+} = {}) {
   const db = {
     users: [
       { id: USERS.admin.id, email: "admin@example.com", role: "ADMIN" },
@@ -58,21 +65,36 @@ function createReservationsTestContext({ reservations = [] } = {}) {
       { id: OTHER_ROOM.id, buildingId: 1, name: "A102", capacity: OTHER_ROOM.capacity },
     ],
     reservations: reservations.map(storedReservation),
+    auditLog: [],
   };
 
   // The same in-memory repositories and runInTransaction as REPOSITORY_DRIVER=memory
-  const { roomsRepository, reservationsRepository, runInTransaction } =
-    createMemoryRepositories(db);
+  const {
+    usersRepository,
+    roomsRepository,
+    reservationsRepository,
+    auditLogRepository,
+    runInTransaction,
+  } = createMemoryRepositories(db);
   const clock = createTestClock();
 
   const service = createReservationsService({
     roomsRepository,
     reservationsRepository,
-    runInTransaction,
+    runInTransaction: wrapTransaction(runInTransaction),
     now: clock.now,
+    eventBus,
   });
 
-  return { service, clock, roomsRepository, reservationsRepository };
+  return {
+    service,
+    clock,
+    eventBus,
+    usersRepository,
+    roomsRepository,
+    reservationsRepository,
+    auditLogRepository,
+  };
 }
 
 module.exports = {

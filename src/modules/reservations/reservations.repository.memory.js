@@ -77,6 +77,11 @@ class ReservationsRepository {
     return reservation ? this.#withRoom(reservation) : null;
   }
 
+  // No row locks in memory - runInTransaction runs units of work one at a time instead
+  async findByIdForUpdate(id) {
+    return this.findById(id);
+  }
+
   async create(data) {
     if (this.#db.reservations.some((existing) => overlapsConfirmed(existing, data))) {
       throw exclusionViolation("reservations_no_overlap");

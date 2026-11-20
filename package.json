@@ -22,7 +22,8 @@
     "db:reset": "knex migrate:rollback --all && knex migrate:latest && knex seed:run",
     "test": "jest --runInBand",
     "test:unit": "jest --selectProjects unit",
-    "test:integration": "jest --selectProjects integration --runInBand"
+    "test:integration": "jest --selectProjects integration --runInBand",
+    "audit-log:scenario": "node scripts/audit-log-scenario.js"
   },
   "keywords": [],
   "author": "",

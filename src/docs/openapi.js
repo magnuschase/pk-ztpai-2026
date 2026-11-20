@@ -69,7 +69,7 @@ module.exports = {
   openapi: "3.1.0",
   info: {
     title: "Room Booking API",
-    version: "4.0.0",
+    version: "5.0.0",
   },
   tags: [
     {
@@ -88,6 +88,7 @@ module.exports = {
       name: "Reservations",
       description: "USER - tylko własne rezerwacje, ADMIN - wszystkie",
     },
+    { name: "Admin", description: "Tylko ADMIN" },
     { name: "Debug", description: "Test obsługi nieoczekiwanych błędów" },
   ],
   // Every operation needs the token, unless it sets security: []
@@ -592,6 +593,52 @@ module.exports = {
       },
     },
 
+    "/api/admin/audit-log": {
+      get: {
+        tags: ["Admin"],
+        summary: "Audit log",
+        description:
+          "Zdarzenia zapisane przez listener audit logu (każdy opublikowany event), od najnowszych. " +
+          "Eventy powstają tylko po udanej operacji: nieudana rezerwacja (np. 409) i ponowne anulowanie nie dają wpisu.",
+        parameters: [
+          {
+            name: "eventType",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["reservation.created", "reservation.cancelled"],
+            },
+          },
+          {
+            name: "page",
+            in: "query",
+            schema: { type: "integer", minimum: 1, default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Strona wpisów audit logu",
+            content: json(schema("AuditLogPage")),
+          },
+          400: errorResponse(
+            "Niepoprawny parametr query",
+            validationExample([
+              "query",
+              "eventType",
+              "eventType must be one of: reservation.created, reservation.cancelled",
+            ]),
+          ),
+          401: ref("Unauthorized"),
+          403: ref("Forbidden"),
+        },
+      },
+    },
+
     "/api/debug/crash": {
       get: {
         tags: ["Debug"],
@@ -931,6 +978,48 @@ module.exports = {
             format: "date-time",
             description: "Od 15 minut do 8 godzin po `startTime`",
             examples: ["2026-12-15T12:00:00Z"],
+          },
+        },
+      },
+
+      AuditLogEntry: {
+        type: "object",
+        required: ["id", "eventType", "payload", "occurredAt"],
+        properties: {
+          id: { type: "integer", examples: [2] },
+          eventType: {
+            type: "string",
+            enum: ["reservation.created", "reservation.cancelled"],
+          },
+          payload: {
+            type: "object",
+            description:
+              "reservation.created: `{ reservationId, roomId, userId, startTime, endTime }`, " +
+              "reservation.cancelled: `{ reservationId, roomId, userId, cancelledBy }` " +
+              "(`userId` - właściciel, `cancelledBy` - kto anulował)",
+            examples: [{ reservationId: 7, roomId: 3, userId: 2, cancelledBy: 1 }],
+          },
+          occurredAt: {
+            type: "string",
+            format: "date-time",
+            description: "Kiedy zdarzenie wystąpiło",
+          },
+        },
+      },
+      AuditLogPage: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: { type: "array", items: schema("AuditLogEntry") },
+          meta: {
+            type: "object",
+            required: ["page", "limit", "total", "totalPages"],
+            properties: {
+              page: { type: "integer", examples: [1] },
+              limit: { type: "integer", examples: [20] },
+              total: { type: "integer", examples: [2] },
+              totalPages: { type: "integer", examples: [1] },
+            },
           },
         },
       },

@@ -7,6 +7,7 @@ const knexConfig = require("../../../knexfile");
 const createApp = require("../../../src/app");
 const createTokenService = require("../../../src/modules/auth/tokens");
 const { createKnexRepositories } = require("../../../src/db/repositories");
+const createEventBus = require("../../../src/events/eventBus");
 
 // The injected "now" of the app: today 08:00 UTC
 const TODAY = "2026-12-07";
@@ -24,11 +25,15 @@ const bearer = (user) => ({ Authorization: `Bearer ${user.token}` });
 // Registers the hooks of an integration test file and returns what its tests use:
 //   beforeAll  - migrations build the schema of the (fresh) test database
 //   beforeEach - every table is emptied, so each test starts from an empty database
+//   afterEach  - event listeners (audit log writes) finish before the next test empties
+//                the tables, so nothing from one test lands in the next one
 //   afterAll   - the connection pool is closed (no open handles left for Jest)
 function setupIntegrationTests() {
   const db = knex(knexConfig);
+  const now = () => new Date(NOW);
+  const eventBus = createEventBus({ now });
   // createApp() without listen() - Supertest passes requests straight to the app
-  const app = createApp({ ...createKnexRepositories(db), jwt: config.jwt, now: () => new Date(NOW) });
+  const app = createApp({ ...createKnexRepositories(db), jwt: config.jwt, now, eventBus });
   const api = request(app);
   const tokenService = createTokenService(config.jwt);
   let tables = [];
@@ -49,7 +54,10 @@ function setupIntegrationTests() {
     await db.raw(`TRUNCATE ${tables.map(() => "??").join(", ")} RESTART IDENTITY CASCADE`, tables);
   });
 
+  afterEach(() => eventBus.drain());
+
   afterAll(async () => {
+    await eventBus.drain();
     await db.destroy();
     consoleLog.mockRestore();
   });
@@ -90,7 +98,7 @@ function setupIntegrationTests() {
     return reservation;
   }
 
-  return { db, api, createUser, createBuilding, createRoom, createReservation };
+  return { db, api, eventBus, createUser, createBuilding, createRoom, createReservation };
 }
 
 module.exports = { NOW, today, tomorrow, bearer, setupIntegrationTests };
