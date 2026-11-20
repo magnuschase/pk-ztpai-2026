@@ -15,7 +15,7 @@ const CANCEL_TRANSITIONS = {
 };
 
 function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return aStart <= bEnd && bStart < aEnd;
+  return aStart < bEnd && bStart < aEnd;
 }
 
 // Ownership: ADMIN reaches every reservation, a USER only their own.
