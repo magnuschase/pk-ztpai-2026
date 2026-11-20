@@ -15,13 +15,15 @@ const CANCEL_TRANSITIONS = {
 };
 
 function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return aStart < bEnd && bStart < aEnd;
+  return aStart <= bEnd && bStart < aEnd;
 }
 
 // Ownership: ADMIN reaches every reservation, a USER only their own.
 // currentUser = req.user from the token ({ id, role }).
 function canAccess(reservation, currentUser) {
-  return currentUser.role === ROLES.ADMIN || reservation.userId === currentUser.id;
+  return (
+    currentUser.role === ROLES.ADMIN || reservation.userId === currentUser.id
+  );
 }
 
 // Someone else's reservation gives a USER the same 404 as one that does not exist.
@@ -69,7 +71,10 @@ function createReservationsService({
   }
 
   async function getReservationById(id, currentUser) {
-    return ensureAccessible(await reservationsRepository.findById(id), currentUser);
+    return ensureAccessible(
+      await reservationsRepository.findById(id),
+      currentUser,
+    );
   }
 
   // Overlap check and insert run in one transaction, after locking the room row
@@ -206,7 +211,11 @@ function createReservationsService({
 
   // The role decides only WHICH reservations can be cancelled (ownership check).
   // The rules below apply to ADMIN as well - there is no bypass.
-  async function cancelReservationInTransaction({ reservationsRepository }, id, currentUser) {
+  async function cancelReservationInTransaction(
+    { reservationsRepository },
+    id,
+    currentUser,
+  ) {
     const reservation = ensureAccessible(
       await reservationsRepository.findByIdForUpdate(id),
       currentUser,
