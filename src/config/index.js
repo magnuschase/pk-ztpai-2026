@@ -43,7 +43,7 @@ const envSchema = z.object({
   API_URL: z.url({ error: "must be a URL, e.g. http://localhost:3000" }).optional(),
 });
 
-// "JWT_SECRET=" (empty, as in .env.example) counts as not set
+// An empty value ("JWT_SECRET=") counts as not set
 const env = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== ""));
 const result = envSchema.safeParse(env);
 

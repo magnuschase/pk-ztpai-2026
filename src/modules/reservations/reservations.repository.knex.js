@@ -141,6 +141,13 @@ class ReservationsKnexRepository {
     return row ? toReservation(row) : null;
   }
 
+  // Inside a transaction: locks the reservation row (not the joined room / user rows)
+  // until commit, so a concurrent change of the same reservation waits
+  async findByIdForUpdate(id) {
+    const row = await this.#selectWithRoom().where("res.id", id).forUpdate("res").first();
+    return row ? toReservation(row) : null;
+  }
+
   async create(data) {
     let rows;
     try {

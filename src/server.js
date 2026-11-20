@@ -2,69 +2,64 @@
 const config = require("./config");
 const knex = require("knex");
 const createApp = require("./app");
-const { createMemoryDatabase } = require("./db/memoryDatabase");
-const BuildingsMemoryRepository = require("./modules/buildings/buildings.repository.memory");
-const BuildingsKnexRepository = require("./modules/buildings/buildings.repository.knex");
-const RoomsMemoryRepository = require("./modules/rooms/rooms.repository.memory");
-const RoomsKnexRepository = require("./modules/rooms/rooms.repository.knex");
-const ReservationsMemoryRepository = require("./modules/reservations/reservations.repository.memory");
-const ReservationsKnexRepository = require("./modules/reservations/reservations.repository.knex");
-const UsersMemoryRepository = require("./modules/users/users.repository.memory");
-const UsersKnexRepository = require("./modules/users/users.repository.knex");
+const { createKnexRepositories, createMemoryRepositories } = require("./db/repositories");
+const createEventBus = require("./events/eventBus");
 
-function createKnexRepositories(db) {
-  return {
-    usersRepository: new UsersKnexRepository(db),
-    buildingsRepository: new BuildingsKnexRepository(db),
-    roomsRepository: new RoomsKnexRepository(db),
-    reservationsRepository: new ReservationsKnexRepository(db),
-  };
-}
+// Close the HTTP server and the pool in time - Docker sends SIGKILL 10 s after SIGTERM
+const SHUTDOWN_TIMEOUT_MS = 8000;
 
-// The only place that decides which repository implementation the app uses
-function createRepositories(driver) {
-  if (driver === "memory") {
-    const db = createMemoryDatabase();
-    const repositories = {
-      usersRepository: new UsersMemoryRepository(db),
-      buildingsRepository: new BuildingsMemoryRepository(db),
-      roomsRepository: new RoomsMemoryRepository(db),
-      reservationsRepository: new ReservationsMemoryRepository(db),
-    };
-    // No transactions in memory: units of work run one at a time (like a global lock).
-    // There is no rollback, so work should write only at the end.
-    let queue = Promise.resolve();
-    function runInTransaction(work) {
-      const result = queue.then(() => work(repositories));
-      queue = result.catch(() => {});
-      return result;
-    }
-    return { ...repositories, runInTransaction };
-  }
+// The only place that decides which repository implementation the app uses.
+// db is the knex connection pool - null for the in-memory repositories.
+const db = config.repositoryDriver === "knex" ? knex(require("../knexfile")) : null;
+const repositories = db ? createKnexRepositories(db) : createMemoryRepositories();
 
-  if (driver === "knex") {
-    const db = knex(require("../knexfile"));
-    // Repositories passed to `work` run every query on the same transaction;
-    // commit when `work` resolves, rollback when it throws
-    function runInTransaction(work) {
-      return db.transaction((trx) => work(createKnexRepositories(trx)));
-    }
-    return { ...createKnexRepositories(db), runInTransaction };
-  }
+const eventBus = createEventBus();
 
-  throw new Error(`Unknown REPOSITORY_DRIVER "${driver}" (expected "knex" or "memory")`);
-}
-
-const app = createApp({
-  ...createRepositories(config.repositoryDriver),
-  jwt: config.jwt,
-});
+const app = createApp({ ...repositories, jwt: config.jwt, eventBus });
 
 // Express 5 passes listen errors (e.g. EADDRINUSE) to the callback
-app.listen(config.port, (err) => {
+const server = app.listen(config.port, (err) => {
   if (err) throw err;
   console.log(
     `Server is running at http://localhost:${config.port} (repositories: ${config.repositoryDriver})`,
   );
   console.log(`API docs: http://localhost:${config.port}/api/docs`);
 });
+
+// SIGTERM: docker stop / docker compose down, SIGINT: Ctrl+C. Stop accepting connections,
+// let requests in progress finish, wait for the event listeners they triggered (audit log
+// writes), then close the database pool. The process then exits on its own - nothing is
+// left in the event loop.
+let shuttingDown = false;
+
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received - closing the HTTP server`);
+
+  // A request that hangs must not keep the process alive until SIGKILL
+  setTimeout(() => {
+    console.error(`Shutdown did not finish within ${SHUTDOWN_TIMEOUT_MS} ms - exiting`);
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS).unref();
+
+  // Also closes idle keep-alive connections, so it does not wait for their timeout
+  server.close(async (err) => {
+    if (err) {
+      console.error("Error while closing the HTTP server:", err);
+      process.exitCode = 1;
+    } else {
+      console.log("HTTP server closed");
+    }
+    await eventBus.drain();
+    console.log("Event listeners finished");
+    if (db) {
+      await db.destroy();
+      console.log("Database pool closed");
+    }
+    console.log("Shutdown complete");
+  });
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

@@ -1,0 +1,20 @@
+# Installed inside the image (for its platform), never copied from the host
+node_modules
+
+# Secrets - the container gets its configuration from docker-compose.yml
+.env
+.env.*
+
+.git
+.gitignore
+
+# Not needed to run the API
+Dockerfile
+.dockerignore
+docker-compose.yml
+tests
+jest.config.js
+coverage
+docs
+scripts
+*.md

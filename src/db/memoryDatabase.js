@@ -61,6 +61,7 @@ function createMemoryDatabase() {
         internalNote: "seed: already started, used for RESERVATION_ALREADY_STARTED",
       },
     ],
+    auditLog: [],
   };
 }
 
